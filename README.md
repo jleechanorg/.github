@@ -1,4 +1,4 @@
-# jleechanorg .github
+# jleechanorg
 
 This meta-repository collects shared configuration for the organization and serves as a jumping-off point for all other public projects under **@jleechanorg**.
 
