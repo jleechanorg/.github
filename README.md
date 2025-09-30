@@ -5,7 +5,7 @@ This meta-repository collects shared configuration for the organization and serv
 ## Flagship Systems
 
 ### [claude-commands](https://github.com/jleechanorg/claude-commands)
-Claude Commands is the automation backbone for scaling Anthropic's Claude Code across heterogeneous environments. The repository documents more than 150 purpose-built slash commands that compose MCP tools, shell scripts, and remote workflows into repeatable playbooks. It covers the full lifecycle from project discovery through scoped planning, implementation, validation, and post-launch QA hand-off so assistants can run autonomous delivery loops without bespoke operator oversight.
+Claude Commands is the automation backbone for scaling Anthropic's Claude Code across heterogeneous environments. The repository documents more than 150 purpose-built slash commands that compose MCP tools, shell scripts, and remote workflows into repeatable playbooks. It covers the full lifecycle from project discovery through scoped planning, implementation, validation, and post-launch QA hand-off so assistants can run autonomous delivery loops without dedicated operator oversight.
 
 Beyond raw command listings, the project explains how to stitch commands together into guardrailed pipelines with queueing, rate limiting, and audit-friendly transcripts. Observability hooks surface live progress to human reviewers and feed retrospective analytics that inform new automations. The guide also walks through environment setup for Linux, macOS, and Windows Subsystem for Linux, ensuring contributors can bootstrap a consistent workspace in minutes.
 
