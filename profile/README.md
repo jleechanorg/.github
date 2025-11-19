@@ -18,11 +18,11 @@
 - Bundled slash commands integrate log tailing, structured prompts, and rollback-safe checkpoints for reliable execution.
 - Grafana-ready telemetry, request tracing, and alerting keep teams in control while gating risky mutations behind approvals.
 
-### 🛰️ [ralph-orchestrator](https://github.com/jleechanorg/ralph-orchestrator)
-- Unifies Claude, Q Chat, and Gemini agents into a single mission-control plane for complex delivery programs.
-- Evented job graph coordinates discovery, build-out, QA, and launch readiness with versioned checkpoints.
-- Reliability features include sandbox isolation, circuit breakers, and human-in-the-loop sign-offs for production changes.
-- Documentation covers extending the orchestrator with adapters, observability exporters, and tuned retry policies.
+### 📧 [mcp_mail](https://github.com/jleechanorg/mcp_mail)
+- Model Context Protocol server enabling Claude to send emails through Gmail's API.
+- Supports both plain text and HTML emails with attachment handling.
+- OAuth2 authentication flow with secure credential management.
+- Built-in rate limiting and error handling for reliable email delivery.
 
 ### 🕸️ [ai_web_crawler](https://github.com/jleechanorg/ai_web_crawler)
 - Node.js FastMCP façade with Python scraping workers for reliable traversal of the public web.
