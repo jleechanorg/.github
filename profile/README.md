@@ -19,10 +19,10 @@
 - Grafana-ready telemetry, request tracing, and alerting keep teams in control while gating risky mutations behind approvals.
 
 ### 📧 [mcp_mail](https://github.com/jleechanorg/mcp_mail)
-- Model Context Protocol server enabling Claude to send emails through Gmail's API.
-- Supports both plain text and HTML emails with attachment handling.
-- OAuth2 authentication flow with secure credential management.
-- Built-in rate limiting and error handling for reliable email delivery.
+- Multi-agent coordination system via async messaging (forked from [Dicklesworthstone/mcp_agent_mail](https://github.com/Dicklesworthstone/mcp_agent_mail)).
+- **9 core enhancements** removing coordination barriers: 65% token reduction via lazy loading, global agent/message lookup across projects, automatic @mention scanning in unified inbox.
+- Streamlined workflows: one-step agent registration with auto-project creation, contact-free messaging without approval gates.
+- Projects as metadata only (not boundaries), enabling seamless cross-repo agent collaboration with flexible project keys.
 
 ### 🕸️ [ai_web_crawler](https://github.com/jleechanorg/ai_web_crawler)
 - Node.js FastMCP façade with Python scraping workers for reliable traversal of the public web.
