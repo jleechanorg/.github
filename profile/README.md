@@ -18,11 +18,11 @@
 - Bundled slash commands integrate log tailing, structured prompts, and rollback-safe checkpoints for reliable execution.
 - Grafana-ready telemetry, request tracing, and alerting keep teams in control while gating risky mutations behind approvals.
 
-### 🛰️ [ralph-orchestrator](https://github.com/jleechanorg/ralph-orchestrator)
-- Unifies Claude, Q Chat, and Gemini agents into a single mission-control plane for complex delivery programs.
-- Evented job graph coordinates discovery, build-out, QA, and launch readiness with versioned checkpoints.
-- Reliability features include sandbox isolation, circuit breakers, and human-in-the-loop sign-offs for production changes.
-- Documentation covers extending the orchestrator with adapters, observability exporters, and tuned retry policies.
+### 📧 [mcp_mail](https://github.com/jleechanorg/mcp_mail)
+- Multi-agent coordination system via async messaging (forked from [Dicklesworthstone/mcp_agent_mail](https://github.com/Dicklesworthstone/mcp_agent_mail)).
+- **9 core enhancements** removing coordination barriers: 65% token reduction via lazy loading, global agent/message lookup across projects, automatic @mention scanning in unified inbox.
+- Streamlined workflows: one-step agent registration with auto-project creation, contact-free messaging without approval gates.
+- Projects as metadata only (not boundaries), enabling seamless cross-repo agent collaboration with flexible project keys.
 
 ### 🕸️ [ai_web_crawler](https://github.com/jleechanorg/ai_web_crawler)
 - Node.js FastMCP façade with Python scraping workers for reliable traversal of the public web.
