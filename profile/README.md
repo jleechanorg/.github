@@ -6,25 +6,25 @@
 
 ## 🧠 Consensus ML
 
-### [Consensus ML](https://consensus-ml.ai) - Multi-Model AI Consensus Platform
+### [Consensus ML](https://consensus-ml.ai) - Multi-Model AI Consultation Platform
 
-An intelligent orchestration platform that harnesses multiple AI models to achieve consensus-driven responses, combining the strengths of diverse LLMs for more reliable and balanced outputs.
+Ask one question, receive synthesized analysis from 5 major AI models (Cerebras, Claude Sonnet 4, Gemini 2.5 Flash, Perplexity Sonar, Grok) with consensus, divergent perspectives, and comprehensive coverage highlighted. Research shows multi-model approaches reduce hallucinations by 60% and outperform single models.
 
 **🔗 [Explore the Platform →](https://consensus-ml.ai)**
 
 #### Core Technology Stack
-- **Backend**: Python with FastAPI for high-performance async API handling
-- **AI Integration**: Multi-provider support (OpenAI, Anthropic, Google, open-source models)
-- **Consensus Engine**: Weighted voting and semantic similarity algorithms for response aggregation
-- **Frontend**: React + TypeScript with real-time streaming responses
+- **Backend**: TypeScript monorepo with FastMCP HTTP/STDIO server + Express middleware
+- **Architecture**: "MCP all the way down" - internal services communicate via Model Context Protocol
+- **Frontend**: React 19 + TypeScript + Vite with Tailwind CSS
+- **Infrastructure**: Google Cloud Run, Firebase Auth, Firestore persistence, Secret Manager
 
 #### Key Features
-- 🤝 **Multi-Model Consensus** - Query multiple LLMs simultaneously and synthesize unified responses
-- ⚖️ **Weighted Voting** - Configurable confidence scoring across different model providers
-- 🔄 **Fallback Chains** - Automatic failover between models for 99.9% uptime
-- 📊 **Response Analytics** - Track model agreement rates and identify divergent outputs
-- 🔌 **API-First Design** - RESTful endpoints for easy integration into existing workflows
-- 🛡️ **Bias Mitigation** - Cross-model validation reduces single-model biases
+- 🤝 **2-Round Parallel Architecture** - Round 1: All models execute in parallel (~22s), Round 2: Cerebras synthesizes insights (~8s)
+- ⚡ **Cost Efficiency** - Cerebras synthesis at ~$0.60/M tokens vs $5-20/M for premium models
+- 📦 **Published npm Packages** - Reusable `@ai-universe/*` packages for MCP-based applications
+- 🔄 **Dual Transport** - FastMCP HTTP proxy (production) + STDIO transport (Claude CLI development)
+- 📊 **Conversation Persistence** - MCP-native conversation management with Firestore storage
+- 🛡️ **Tiered Rate Limiting** - Anonymous/authenticated/VIP tiers with distributed coordination
 
 ---
 
