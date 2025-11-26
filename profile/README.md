@@ -60,16 +60,16 @@ Automation backbone that scales Anthropic's Claude Code across heterogeneous env
 - Pipelines include queueing, rate limiting, observability hooks, and audit-friendly transcripts for full lifecycle coverage.
 - Cross-platform setup guidance ensures Linux, macOS, and WSL contributors can bootstrap consistent workspaces in minutes.
 
-#### ⚡ Orchestration Framework
-Multi-agent orchestration system for complex development tasks using tmux-based agent management:
+#### ⚡ [Orchestration Framework](https://github.com/jleechanorg/claude-commands/blob/main/.claude/commands/orchestrate.md)
+Multi-agent orchestration system for complex development tasks using tmux-based agent management ([source](https://github.com/jleechanorg/claude-commands/tree/main/orchestration)):
 - **Specialized Agents**: Frontend, backend, testing, and task-specific agents with complete isolation
 - **Intelligent Reuse**: 50-80% efficiency gains through idle agent detection and strategic reuse
 - **Real-time Coordination**: Redis-backed coordination with progress monitoring via `/orch status`
 - **Natural Language Commands**: "Build X urgently", "connect to sonnet 1", "monitor agents"
 - **Branch Isolation Protocol**: Agents work in dedicated worktrees preventing context contamination
 
-#### 🔄 GitHub PR Automation Framework
-Seamless CI/CD integration with intelligent PR processing (`jleechanorg-pr-automation` PyPI package):
+#### 🔄 [GitHub PR Automation Framework](https://github.com/jleechanorg/claude-commands/blob/main/.claude/commands/automation.md)
+Seamless CI/CD integration with intelligent PR processing ([PyPI: jleechanorg-pr-automation](https://pypi.org/project/jleechanorg-pr-automation/) | [source](https://github.com/jleechanorg/claude-commands/tree/main/automation)):
 - **Actionable PR Detection**: Only processes PRs that need attention based on commit-based tracking
 - **Safety Limits**: Built-in rate limiting (per-PR and global) with cross-process thread-safe persistence
 - **Hook Integration**: Auto-triggers after push operations with full Claude Code workflow integration
