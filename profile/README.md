@@ -13,9 +13,9 @@ Ask one question, receive synthesized analysis from 5 major AI models (Cerebras,
 **🔗 [Explore the Platform →](https://consensus-ml.ai)**
 
 #### Core Technology Stack
-- **Backend**: [ai_universe](https://github.com/jleechanorg/ai_universe) - TypeScript FastMCP HTTP/STDIO server + Express middleware
-- **Frontend**: [ai_universe_frontend](https://github.com/jleechanorg/ai_universe_frontend) - React 19 + TypeScript + Vite with Tailwind CSS
-- **Conversations**: [ai_universe_convo_mcp](https://github.com/jleechanorg/ai_universe_convo_mcp) - MCP server for conversation persistence
+- **Backend**: TypeScript FastMCP HTTP/STDIO server + Express middleware
+- **Frontend**: React 19 + TypeScript + Vite with Tailwind CSS
+- **Conversations**: Dedicated MCP server for conversation persistence
 - **Architecture**: "MCP all the way down" - separate services communicate via Model Context Protocol
 - **Infrastructure**: Google Cloud Run, Firebase Auth, Firestore persistence, Secret Manager
 
