@@ -4,11 +4,27 @@
 
 ---
 
-## 🌌 AI Universe
+## 🧠 Consensus ML
 
-A comprehensive ecosystem of AI-powered applications and research projects built for scalable machine learning and intelligent systems.
+### [Consensus ML](https://consensus-ml.ai) - Multi-Model AI Consensus Platform
 
-🔗 **[consensus-ml.ai](https://consensus-ml.ai)** - Explore the AI Universe platform
+An intelligent orchestration platform that harnesses multiple AI models to achieve consensus-driven responses, combining the strengths of diverse LLMs for more reliable and balanced outputs.
+
+**🔗 [Explore the Platform →](https://consensus-ml.ai)**
+
+#### Core Technology Stack
+- **Backend**: Python with FastAPI for high-performance async API handling
+- **AI Integration**: Multi-provider support (OpenAI, Anthropic, Google, open-source models)
+- **Consensus Engine**: Weighted voting and semantic similarity algorithms for response aggregation
+- **Frontend**: React + TypeScript with real-time streaming responses
+
+#### Key Features
+- 🤝 **Multi-Model Consensus** - Query multiple LLMs simultaneously and synthesize unified responses
+- ⚖️ **Weighted Voting** - Configurable confidence scoring across different model providers
+- 🔄 **Fallback Chains** - Automatic failover between models for 99.9% uptime
+- 📊 **Response Analytics** - Track model agreement rates and identify divergent outputs
+- 🔌 **API-First Design** - RESTful endpoints for easy integration into existing workflows
+- 🛡️ **Bias Mitigation** - Cross-model validation reduces single-model biases
 
 ---
 
