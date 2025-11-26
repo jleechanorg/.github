@@ -54,6 +54,12 @@ Your Digital D&D 5e Game Master - an AI-powered tabletop RPG platform that gener
 
 ## 🚀 Flagship Systems
 
+### 📧 [mcp_mail](https://github.com/jleechanorg/mcp_mail)
+- Multi-agent coordination system via async messaging (forked from [Dicklesworthstone/mcp_agent_mail](https://github.com/Dicklesworthstone/mcp_agent_mail)).
+- **9 core enhancements** removing coordination barriers: 65% token reduction via lazy loading, global agent/message lookup across projects, automatic @mention scanning in unified inbox.
+- Streamlined workflows: one-step agent registration with auto-project creation, contact-free messaging without approval gates.
+- Projects as metadata only (not boundaries), enabling seamless cross-repo agent collaboration with flexible project keys.
+
 ### 🤖 [claude-commands](https://github.com/jleechanorg/claude-commands)
 Automation backbone that scales Anthropic's Claude Code across heterogeneous environments.
 - 150+ purpose-built slash commands compose MCP tools, shell scripts, and remote workflows into repeatable playbooks.
@@ -75,12 +81,6 @@ Seamless CI/CD integration with intelligent PR processing ([PyPI: jleechanorg-pr
 - **Hook Integration**: Auto-triggers after push operations with full Claude Code workflow integration
 - **Email Notifications**: Optional SMTP integration for automation alerts
 - **TodoWrite Integration**: Tracks automation tasks with comprehensive progress reporting
-
-### 📧 [mcp_mail](https://github.com/jleechanorg/mcp_mail)
-- Multi-agent coordination system via async messaging (forked from [Dicklesworthstone/mcp_agent_mail](https://github.com/Dicklesworthstone/mcp_agent_mail)).
-- **9 core enhancements** removing coordination barriers: 65% token reduction via lazy loading, global agent/message lookup across projects, automatic @mention scanning in unified inbox.
-- Streamlined workflows: one-step agent registration with auto-project creation, contact-free messaging without approval gates.
-- Projects as metadata only (not boundaries), enabling seamless cross-repo agent collaboration with flexible project keys.
 
 ### 🕸️ [ai_web_crawler](https://github.com/jleechanorg/ai_web_crawler)
 - Node.js FastMCP façade with Python scraping workers for reliable traversal of the public web.
