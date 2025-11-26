@@ -4,19 +4,61 @@
 
 ---
 
+## 🌌 AI Universe
+
+A comprehensive ecosystem of AI-powered applications and research projects built for scalable machine learning and intelligent systems.
+
+🔗 **[consensus-ml.ai](https://consensus-ml.ai)** - Explore the AI Universe platform
+
+---
+
+## 🎮 WorldAI GenAI RPG
+
+### [WorldArchitect.AI](https://github.com/jleechanorg/worldarchitect.ai) - AI-Powered Tabletop RPG Platform
+
+Your Digital D&D 5e Game Master - an AI-powered tabletop RPG platform that generates dynamic narrative content, manages game state, and provides an immersive campaign experience.
+
+**🎯 [Try the Live Demo →](https://mvp-site-app-stable-i6xf2p72ka-uc.a.run.app)**
+
+#### Core Technology Stack
+- **Backend**: Python 3.11 + Flask 2.x with Google Gemini AI integration
+- **Database**: Firebase Firestore with real-time synchronization
+- **Frontend**: Vanilla JavaScript + Bootstrap 5.x with multi-theme support (light/dark/fantasy/cyberpunk)
+- **AI Pipeline**: Advanced prompt engineering with dual-pass generation, entity tracking, and model fallback
+
+#### Key Features
+- 🎭 **Interactive Story Generation** - Real-time AI-powered narrative with planning block enforcement
+- ⚔️ **D&D 5e Mechanics** - Hybrid architecture combining rule-based validation with generative content
+- 📊 **State Synchronization** - Explicit game state tracking with consistency validation
+- 📄 **Multi-Format Export** - Campaign documents in PDF/DOCX/TXT for offline play
+- 🎨 **Theme System** - 5 distinct visual themes with runtime switching
+- 🔧 **MCP Architecture** - Model Context Protocol for clean separation of concerns
+
+---
+
 ## 🚀 Flagship Systems
 
 ### 🤖 [claude-commands](https://github.com/jleechanorg/claude-commands)
-- Automation backbone that scales Anthropic's Claude Code across heterogeneous environments.
+Automation backbone that scales Anthropic's Claude Code across heterogeneous environments.
 - 150+ purpose-built slash commands compose MCP tools, shell scripts, and remote workflows into repeatable playbooks.
 - Pipelines include queueing, rate limiting, observability hooks, and audit-friendly transcripts for full lifecycle coverage.
 - Cross-platform setup guidance ensures Linux, macOS, and WSL contributors can bootstrap consistent workspaces in minutes.
 
-### 🧩 [codex_plus](https://github.com/jleechanorg/codex_plus)
-- Extends the stock Codex CLI with a FastAPI proxy that brokers long-running automations.
-- Streaming gateways (built on `curl_cffi`) let Codex orchestrate builds, evals, and infrastructure changes without blocking.
-- Bundled slash commands integrate log tailing, structured prompts, and rollback-safe checkpoints for reliable execution.
-- Grafana-ready telemetry, request tracing, and alerting keep teams in control while gating risky mutations behind approvals.
+#### ⚡ Orchestration Framework
+Multi-agent orchestration system for complex development tasks using tmux-based agent management:
+- **Specialized Agents**: Frontend, backend, testing, and task-specific agents with complete isolation
+- **Intelligent Reuse**: 50-80% efficiency gains through idle agent detection and strategic reuse
+- **Real-time Coordination**: Redis-backed coordination with progress monitoring via `/orch status`
+- **Natural Language Commands**: "Build X urgently", "connect to sonnet 1", "monitor agents"
+- **Branch Isolation Protocol**: Agents work in dedicated worktrees preventing context contamination
+
+#### 🔄 GitHub PR Automation Framework
+Seamless CI/CD integration with intelligent PR processing (`jleechanorg-pr-automation` PyPI package):
+- **Actionable PR Detection**: Only processes PRs that need attention based on commit-based tracking
+- **Safety Limits**: Built-in rate limiting (per-PR and global) with cross-process thread-safe persistence
+- **Hook Integration**: Auto-triggers after push operations with full Claude Code workflow integration
+- **Email Notifications**: Optional SMTP integration for automation alerts
+- **TodoWrite Integration**: Tracks automation tasks with comprehensive progress reporting
 
 ### 📧 [mcp_mail](https://github.com/jleechanorg/mcp_mail)
 - Multi-agent coordination system via async messaging (forked from [Dicklesworthstone/mcp_agent_mail](https://github.com/Dicklesworthstone/mcp_agent_mail)).
