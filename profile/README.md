@@ -2,6 +2,18 @@
 
 ✨ This meta-repository collects shared configuration for the organization and serves as a jumping-off point for all other public projects under **@jleechanorg**. Explore the highlights below to quickly find the automation framework or showcase build that fits your needs.
 
+## 📋 Table of Contents
+
+- [🧠 Consensus ML](#-consensus-ml) - Multi-model AI consultation platform
+- [🎮 WorldAI GenAI RPG](#-worldai-genai-rpg) - AI-powered tabletop RPG
+- [🚀 Flagship Systems](#-flagship-systems)
+  - [📧 mcp_mail](#-mcp_mail) - Multi-agent coordination
+  - [🤖 claude-commands](#-claude-commands) - Claude Code automation
+    - [⚡ Orchestration Framework](#-orchestration-framework)
+    - [🔄 GitHub PR Automation](#-github-pr-automation-framework)
+  - [🕸️ ai_web_crawler](#%EF%B8%8F-ai_web_crawler) - Web scraping MCP
+- [💼 Portfolio Highlights](#-portfolio-highlights)
+
 ---
 
 ## 🧠 Consensus ML
