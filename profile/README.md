@@ -67,8 +67,8 @@ Automation backbone that scales Anthropic's Claude Code across heterogeneous env
 - Pipelines include queueing, rate limiting, observability hooks, and audit-friendly transcripts for full lifecycle coverage.
 - Cross-platform setup guidance ensures Linux, macOS, and WSL contributors can bootstrap consistent workspaces in minutes.
 
-#### ⚡ [Orchestration Framework](https://github.com/jleechanorg/claude-commands/blob/main/.claude/commands/orchestrate.md)
-Multi-agent orchestration system for complex development tasks using tmux-based agent management ([source](https://github.com/jleechanorg/claude-commands/tree/main/orchestration)):
+#### ⚡ [Orchestration Framework](https://github.com/jleechanorg/claude-commands/blob/main/orchestration)
+Multi-agent orchestration system for complex development tasks using tmux-based agent management:
 - **Specialized Agents**: Frontend, backend, testing, and task-specific agents with complete isolation
 - **Intelligent Reuse**: 50-80% efficiency gains through idle agent detection and strategic reuse
 - **Real-time Coordination**: Redis-backed coordination with progress monitoring via `/orch status`
