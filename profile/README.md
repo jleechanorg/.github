@@ -87,7 +87,7 @@ Multi-agent orchestration system for complex development tasks using tmux-based 
 - **Natural Language Commands**: "Build X urgently", "connect to sonnet 1", "monitor agents"
 - **Branch Isolation Protocol**: Agents work in dedicated worktrees preventing context contamination
 
-#### 🔄 [GitHub PR Automation Framework](https://github.com/jleechanorg/claude-commands/blob/main/.claude/commands/automation.md)
+#### 🔄 [GitHub PR Automation Framework](https://github.com/jleechanorg/claude-commands/tree/main/automation)
 Seamless CI/CD integration with intelligent PR processing ([PyPI: jleechanorg-pr-automation](https://pypi.org/project/jleechanorg-pr-automation/) | [source](https://github.com/jleechanorg/claude-commands/tree/main/automation)):
 - **Actionable PR Detection**: Only processes PRs that need attention based on commit-based tracking
 - **Safety Limits**: Built-in rate limiting (per-PR and global) with cross-process thread-safe persistence
