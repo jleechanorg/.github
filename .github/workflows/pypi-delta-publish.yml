@@ -1,0 +1,223 @@
+name: Reusable PyPI Delta Publisher
+
+on:
+  workflow_call:
+    inputs:
+      package_name:
+        description: 'PyPI package name (e.g., mcp-mail)'
+        required: true
+        type: string
+      package_dir:
+        description: 'Directory containing pyproject.toml (default: .)'
+        required: false
+        type: string
+        default: '.'
+      python_version:
+        description: 'Python version to use (default: 3.13)'
+        required: false
+        type: string
+        default: '3.13'
+      build_tool:
+        description: 'Build tool: uv or build (default: uv)'
+        required: false
+        type: string
+        default: 'uv'
+      watch_paths:
+        description: 'Comma-separated paths to watch for changes (default: src/,pyproject.toml,uv.lock,README.md)'
+        required: false
+        type: string
+        default: 'src/,pyproject.toml,uv.lock,README.md'
+      force_publish:
+        description: 'Force publish (skip delta detection)'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      pypi_token:
+        description: 'PyPI API token'
+        required: true
+    outputs:
+      published:
+        description: 'Whether package was published (true/false)'
+        value: ${{ jobs.publish.outputs.published }}
+      version:
+        description: 'Package version that was published'
+        value: ${{ jobs.validate-version.outputs.version }}
+      skipped:
+        description: 'Whether publishing was skipped (true/false)'
+        value: ${{ jobs.check-changes.outputs.should_publish == 'false' }}
+
+jobs:
+  check-changes:
+    name: Check for package changes
+    runs-on: ubuntu-latest
+    outputs:
+      should_publish: ${{ steps.detect.outputs.should_publish }}
+      changes_summary: ${{ steps.detect.outputs.changes_summary }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for tag comparison
+
+      - name: Detect package changes
+        id: detect
+        run: |
+          # Force publish override
+          if [[ "${{ inputs.force_publish }}" == "true" ]]; then
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+            echo "changes_summary=Force publish requested" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Get previous tag
+          PREVIOUS_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed -n '2p')
+          CURRENT_TAG=${GITHUB_REF#refs/tags/}
+
+          if [[ -z "$PREVIOUS_TAG" ]]; then
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+            echo "changes_summary=First release - no previous tag found" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Comparing $PREVIOUS_TAG...$CURRENT_TAG"
+
+          # Parse watch paths (comma-separated, trim whitespace)
+          IFS=',' read -ra WATCH_PATHS <<< "${{ inputs.watch_paths }}"
+
+          # Get changed files between tags
+          CHANGED_FILES=$(git diff --name-only "$PREVIOUS_TAG" "$CURRENT_TAG" || echo "")
+
+          CHANGES_FOUND=false
+          CHANGES_LIST=""
+
+          for path in "${WATCH_PATHS[@]}"; do
+            path=$(echo "$path" | xargs)  # trim whitespace
+
+            # Adjust path if package_dir is specified
+            if [[ "${{ inputs.package_dir }}" != "." ]]; then
+              full_path="${{ inputs.package_dir }}/${path}"
+            else
+              full_path="$path"
+            fi
+
+            # Check if any changed files match this path
+            if echo "$CHANGED_FILES" | grep -q "^${full_path}"; then
+              CHANGES_FOUND=true
+              COUNT=$(echo "$CHANGED_FILES" | grep "^${full_path}" | wc -l | tr -d ' ')
+              CHANGES_LIST="${CHANGES_LIST}- ${full_path}: ${COUNT} file(s)\n"
+            fi
+          done
+
+          if [[ "$CHANGES_FOUND" == "true" ]]; then
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+            echo "changes_summary<<EOF" >> $GITHUB_OUTPUT
+            echo -e "Package changes detected:\n${CHANGES_LIST}" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+            echo "changes_summary=No changes detected in watched paths since $PREVIOUS_TAG" >> $GITHUB_OUTPUT
+          fi
+
+  validate-version:
+    name: Validate version bump
+    runs-on: ubuntu-latest
+    needs: check-changes
+    if: needs.check-changes.outputs.should_publish == 'true'
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Get version from pyproject.toml
+        id: get-version
+        working-directory: ${{ inputs.package_dir }}
+        run: |
+          VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Package version: $VERSION"
+
+      - name: Verify tag matches version
+        run: |
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          PYPROJECT_VERSION="${{ steps.get-version.outputs.version }}"
+
+          if [[ "$TAG_VERSION" != "$PYPROJECT_VERSION" ]]; then
+            echo "❌ ERROR: Tag version ($TAG_VERSION) doesn't match pyproject.toml version ($PYPROJECT_VERSION)"
+            exit 1
+          fi
+          echo "✅ Version validation passed: $TAG_VERSION"
+
+  publish:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    needs: [check-changes, validate-version]
+    if: needs.check-changes.outputs.should_publish == 'true'
+    outputs:
+      published: ${{ steps.publish-result.outputs.published }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install build tool
+        run: |
+          if [[ "${{ inputs.build_tool }}" == "uv" ]]; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            export PATH="$HOME/.local/bin:$PATH"
+            echo "$HOME/.local/bin" >> $GITHUB_PATH
+          else
+            python -m pip install --upgrade pip
+            pip install build
+          fi
+
+      - name: Build package
+        working-directory: ${{ inputs.package_dir }}
+        run: |
+          if [[ "${{ inputs.build_tool }}" == "uv" ]]; then
+            uv build
+          else
+            python -m build
+          fi
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: ${{ inputs.package_dir }}/dist/
+          password: ${{ secrets.pypi_token }}
+
+      - name: Set publish result
+        id: publish-result
+        run: echo "published=true" >> $GITHUB_OUTPUT
+
+      - name: Create release summary
+        run: |
+          echo "## 🎉 Published to PyPI" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Package:** ${{ inputs.package_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.validate-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**PyPI URL:** https://pypi.org/project/${{ inputs.package_name }}/${{ needs.validate-version.outputs.version }}/" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Changes Detected" >> $GITHUB_STEP_SUMMARY
+          echo "${{ needs.check-changes.outputs.changes_summary }}" >> $GITHUB_STEP_SUMMARY
+
+  skip-publish:
+    name: Skip publishing (no changes)
+    runs-on: ubuntu-latest
+    needs: check-changes
+    if: needs.check-changes.outputs.should_publish == 'false'
+    steps:
+      - name: Report skip reason
+        run: |
+          echo "## ⏭️ Publishing Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "${{ needs.check-changes.outputs.changes_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💡 **Tip:** To force publish, re-run this workflow with 'force_publish' enabled." >> $GITHUB_STEP_SUMMARY
