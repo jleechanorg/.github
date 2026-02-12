@@ -4,6 +4,7 @@
 
 ## 📋 Table of Contents
 
+- [🛠️ AI Development Recommendations](#%EF%B8%8F-ai-development-recommendations) - **Battle-tested AI coding toolchain**
 - [🧠 Consensus ML](#-consensus-ml) - Multi-model AI consultation platform
 - [🎮 WorldAI GenAI RPG](#-worldai-genai-rpg) - AI-powered tabletop RPG
 - [🚀 Flagship Systems](#-flagship-systems)
@@ -13,6 +14,45 @@
     - [🔄 GitHub PR Automation](#-github-pr-automation-framework)
   - [🕸️ ai_web_crawler](#%EF%B8%8F-ai_web_crawler) - Web scraping MCP
 - [💼 Portfolio Highlights](#-portfolio-highlights)
+
+---
+
+## 🛠️ AI Development Recommendations
+
+### [ai_dev_recs](https://github.com/jleechanorg/ai_dev_recs) - Battle-Tested AI Coding Toolchain
+
+**Evidence-based AI development toolchain recommendations from production usage at WorldArchitect.AI**
+
+Based on 19,044 commits over 6 months running a production AI-powered D&D platform. This is NOT a "top 10 AI tools" listicle - it's a battle-tested toolchain extracted from actual production usage, backed by git commit evidence and real workflow patterns.
+
+**🔗 [View the Recommendations →](https://github.com/jleechanorg/ai_dev_recs)**
+
+#### What's Inside
+
+- ✅ **19 Tools** - Claude Code CLI, pytest, gh CLI, Gemini, beads, tmux, Cursor, Warp, Docker, and more
+- ✅ **10 MCP Servers** - Multi-agent coordination, testing, Chrome automation
+- ✅ **80+ Custom Commands** - `/copilot`, `/fixpr`, `/redgreen`, `/fake`, and specialized workflows
+- ✅ **Multi-Agent Orchestration** - 4 AI agents (copilot, cursor, codex, claude) working autonomously
+- ✅ **Automatic Quality Gates** - `/fake` hook catches speculative code (15% catch rate, 343 checks/month)
+- ✅ **12-Step Development Workflow** - Complete lifecycle from planning to deployment
+
+#### Key Metrics
+
+- 📊 **19,044 commits analyzed** (6 months of production usage)
+- 🧪 **17.4% test coverage** (3,308 testing commits)
+- 🤖 **7,950 /copilot invocations** (PR automation)
+- 🔍 **343 automatic code quality checks** (via /fake hook)
+- 💰 **$40-60/month** (cost-conscious AI development)
+
+#### Documentation
+
+- [**README.md**](https://github.com/jleechanorg/ai_dev_recs/blob/main/README.md) - Executive summary of all 19 tools
+- [**TOOLCHAIN.md**](https://github.com/jleechanorg/ai_dev_recs/blob/main/TOOLCHAIN.md) - Complete tool inventory with evidence scores
+- [**WORKFLOWS.md**](https://github.com/jleechanorg/ai_dev_recs/blob/main/WORKFLOWS.md) - 12-step multi-AI development workflow
+- [**FAKE_HOOK_ANALYSIS.md**](https://github.com/jleechanorg/ai_dev_recs/blob/main/FAKE_HOOK_ANALYSIS.md) - Automatic code quality gate analysis
+- [**SETUP_GUIDE.md**](https://github.com/jleechanorg/ai_dev_recs/blob/main/SETUP_GUIDE.md) - Installation instructions
+
+**Who This Is For**: Developers using Claude Code, Cursor, or other AI coding tools who want to see real production patterns with evidence-based recommendations.
 
 ---
 
