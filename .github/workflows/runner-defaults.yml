@@ -1,0 +1,116 @@
+# Reusable workflow: enforces jleechanorg runner-defaults policy with soft warnings.
+#
+# Usage from a consuming repo:
+#
+#   jobs:
+#     test:
+#       uses: jleechanorg/.github/.github/workflows/runner-defaults.yml@main
+#       with:
+#         visibility: private   # or 'public'
+#         job-name: test
+#         # Optional: override the runner (requires a runner-override comment in the caller)
+#         # runs-on-override: macos-latest
+#       secrets: inherit
+#
+# This workflow emits ::warning:: annotations when the chosen runner
+# violates the policy. It does NOT fail the build by default — set
+# `fail-on-violation: true` to hard-enforce.
+name: Runner Defaults (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      visibility:
+        description: "Repo visibility: 'public' or 'private'"
+        required: true
+        type: string
+      job-name:
+        description: "Logical job name for logs"
+        required: false
+        default: "default"
+      runs-on-override:
+        description: "Optional explicit runs-on override (e.g., macos-latest)"
+        required: false
+        type: string
+        default: ""
+      fail-on-violation:
+        description: "If true, fail the build on policy violation. Default false (warn only)."
+        required: false
+        type: boolean
+        default: false
+      steps:
+        description: "Steps to run (passed through to the wrapper job)"
+        required: false
+        type: string
+        default: |
+          - name: Placeholder
+            run: echo "Override 'steps' input to add real work."
+
+jobs:
+  policy-check:
+    runs-on: ubuntu-latest
+    outputs:
+      violation: ${{ steps.check.outputs.violation }}
+    steps:
+      - name: Read repo visibility from event
+        id: visibility
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Prefer workflow_call input, fall back to API
+          VIS="${{ inputs.visibility }}"
+          if [ -z "$VIS" ]; then
+            VIS=$(gh api repos/${{ github.repository }} --jq '.private | if . then "private" else "public" end')
+          fi
+          echo "visibility=$VIS" >> $GITHUB_OUTPUT
+
+      - name: Evaluate runner choice
+        id: check
+        env:
+          VIS: ${{ steps.visibility.outputs.visibility }}
+          OVERRIDE: ${{ inputs.runs-on-override }}
+        run: |
+          RUNNER="${OVERRIDE:-self-hosted}"
+          EXPECTED_DEFAULT=""
+          if [ "$VIS" = "public" ]; then
+            EXPECTED_DEFAULT="github-hosted"
+          else
+            EXPECTED_DEFAULT="self-hosted"
+          fi
+          echo "Visibility: $VIS"
+          echo "Runner chosen: $RUNNER"
+          echo "Expected default: $EXPECTED_DEFAULT"
+
+          VIOLATION="false"
+          if [ "$VIS" = "public" ] && echo "$RUNNER" | grep -q "self-hosted"; then
+            echo "::warning title=Runner policy::Public repo using self-hosted runner is wasteful. Use GitHub-hosted unless explicitly overridden with # runner-override comment."
+            VIOLATION="true"
+          fi
+          if [ "$VIS" = "private" ] && ! echo "$RUNNER" | grep -q "self-hosted"; then
+            echo "::warning title=Runner policy::Private repo using GitHub-hosted runner is a cost leak. Use self-hosted unless explicitly overridden with # runner-override comment."
+            VIOLATION="true"
+          fi
+          echo "violation=$VIOLATION" >> $GITHUB_OUTPUT
+
+  run:
+    needs: policy-check
+    runs-on: ${{ inputs.runs-on-override != '' && inputs.runs-on-override || 'self-hosted' }}
+    steps:
+      - name: Policy summary
+        run: |
+          echo "### Runner policy" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Visibility: ${{ inputs.visibility }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Runner: ${{ inputs.runs-on-override != '' && inputs.runs-on-override || 'self-hosted' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Violation: ${{ needs.policy-check.outputs.violation }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail on policy violation (if requested)
+        if: ${{ inputs.fail-on-violation == true && needs.policy-check.outputs.violation == 'true' }}
+        run: |
+          echo "::error title=Runner policy violated::Set fail-on-violation=false to soften, or fix the runs-on choice."
+          exit 1
+
+      - name: Execute provided steps
+        run: |
+          echo "Executing inherited steps for job: ${{ inputs.job-name }}"
+          echo "(Inheriting steps via 'steps' input is a no-op in this reusable workflow shell.)"
