@@ -1,0 +1,179 @@
+# .github/workflows/hermes-pr-tag-listener.yml
+# Reusable workflow: tag @hermes (U0AEZC7RX1Q) on a PR → notify Slack + AO dispatcher.
+# Option A: Slack-only post. Option B: also auto-spawn an AO worker (set `dispatch_ao: true`).
+#
+# Call site in any consuming repo (~/.github/workflows/hermes-pr-tag-listener.call.yml):
+#   on:
+#     pull_request: { types: [opened, edited] }
+#     issue_comment: { types: [created, edited] }
+#   permissions:
+#     contents: read
+#     pull-requests: read
+#     issues: read
+#   jobs:
+#     notify:
+#       uses: jleechanorg/.github/.github/workflows/hermes-pr-tag-listener.yml@main
+#       with:
+#         slack_channel: '#worldai-bugs'   # or channel ID C0BDEAJH8PK
+#         dispatch_ao: 'false'             # 'true' to also enqueue AO worker via dispatch-task
+#       secrets:
+#         slack_webhook_url: ${{ secrets.HERMES_SLACK_WEBHOOK_URL }}
+#         ao_dispatch_token: ${{ secrets.HERMES_AO_DISPATCH_TOKEN }}   # only if dispatch_ao='true'
+
+name: hermes-pr-tag-listener (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      slack_channel:
+        description: 'Slack channel name (#worldai-bugs) or ID (C0BDEAJH8PK) for the @hermes ping.'
+        type: string
+        required: true
+      dispatch_ao:
+        description: "Set 'true' to also POST an AO-dispatch payload (used by Option B full loop)."
+        type: string
+        default: 'false'
+      hermes_user_id:
+        description: 'Slack user ID of the hermes bot (default U0AEZC7RX1Q).'
+        type: string
+        default: 'U0AEZC7RX1Q'
+    secrets:
+      slack_webhook_url:
+        description: 'Incoming webhook URL for the target Slack channel.'
+        required: true
+      ao_dispatch_token:
+        description: 'Optional bearer token for the AO dispatcher endpoint (only if dispatch_ao=true).'
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Extract PR context
+        id: ctx
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HERMES_USER_ID: ${{ inputs.hermes_user_id }}
+        run: |
+          set -euo pipefail
+          EVENT="$EVENT_NAME"
+          REPO="${{ github.repository }}"
+          ACTOR="${{ github.actor }}"
+          PR_URL=""
+          PR_NUMBER=""
+          COMMENT_BODY=""
+          COMMENT_AUTHOR=""
+          PR_TITLE=""
+
+          if [ "$EVENT" = "issue_comment" ]; then
+            COMMENT_BODY=$(jq -r '.comment.body // ""' "$GITHUB_EVENT_PATH")
+            COMMENT_AUTHOR=$(jq -r '.comment.user.login // ""' "$GITHUB_EVENT_PATH")
+            PR_NUMBER=$(jq -r '.issue.number // ""' "$GITHUB_EVENT_PATH")
+            PR_URL="https://github.com/$REPO/pull/$PR_NUMBER"
+          elif [ "$EVENT" = "pull_request" ]; then
+            PR_NUMBER=$(jq -r '.pull_request.number // ""' "$GITHUB_EVENT_PATH")
+            PR_TITLE=$(jq -r '.pull_request.title // ""' "$GITHUB_EVENT_PATH")
+            PR_URL=$(jq -r '.pull_request.html_url // ""' "$GITHUB_EVENT_PATH")
+            COMMENT_AUTHOR="$ACTOR"
+          elif [ "$EVENT" = "pull_request_review_comment" ]; then
+            COMMENT_BODY=$(jq -r '.comment.body // ""' "$GITHUB_EVENT_PATH")
+            COMMENT_AUTHOR=$(jq -r '.comment.user.login // ""' "$GITHUB_EVENT_PATH")
+            PR_NUMBER=$(jq -r '.pull_request.number // ""' "$GITHUB_EVENT_PATH")
+            PR_URL="https://github.com/$REPO/pull/$PR_NUMBER"
+          else
+            echo "Unsupported event: $EVENT"; exit 0
+          fi
+
+          # Only fire when @hermes (by user ID) is mentioned. Require literal '@hermes' or
+          # the Slack ID inside <@U0AEZC7RX1Q> mention syntax, since GH users can't @-mention
+          # a Slack bot by ID directly.
+          MENTION_REGEX='@hermes\b|<@'"$HERMES_USER_ID"'>'
+          if ! printf '%s' "$COMMENT_BODY$PR_TITLE" | grep -Eqi "$MENTION_REGEX"; then
+            echo "no @hermes mention — skipping"
+            echo "fire=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "fire=true" >> "$GITHUB_OUTPUT"
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          echo "comment_author=$COMMENT_AUTHOR" >> "$GITHUB_OUTPUT"
+          echo "comment_body<<EOF" >> "$GITHUB_OUTPUT"
+          printf '%s' "$COMMENT_BODY" >> "$GITHUB_OUTPUT"
+          echo "" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "pr_title=$PR_TITLE" >> "$GITHUB_OUTPUT"
+          echo "repo=$REPO" >> "$GITHUB_OUTPUT"
+
+      - name: Post to Slack
+        if: steps.ctx.outputs.fire == 'true'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.slack_webhook_url }}
+          CHANNEL: ${{ inputs.slack_channel }}
+          PR_URL: ${{ steps.ctx.outputs.pr_url }}
+          PR_NUMBER: ${{ steps.ctx.outputs.pr_number }}
+          AUTHOR: ${{ steps.ctx.outputs.comment_author }}
+          REPO: ${{ steps.ctx.outputs.repo }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          TEXT=":wave: *@hermes tagged* by \`${AUTHOR}\` on \`${REPO}\` PR #${PR_NUMBER} — ${PR_URL}"
+
+          PAYLOAD=$(jq -nc \
+            --arg channel  "$CHANNEL" \
+            --arg text     "$TEXT" \
+            --arg pr_url   "$PR_URL" \
+            --arg pr_num   "$PR_NUMBER" \
+            --arg author   "$AUTHOR" \
+            --arg repo     "$REPO" \
+            --arg event    "$EVENT" \
+            '{channel: $channel, text: $text, blocks: [
+              {type: "section", text: {type: "mrkdwn", text: $text}},
+              {type: "context", elements: [
+                {type: "mrkdwn", text: (":link: <" + $pr_url + "|open PR>  •  event: `" + $event + "`  •  repo: `" + $repo + "`")}
+              ]}
+            ]}')
+
+          HTTP_CODE=$(curl -sS -o /tmp/slack_resp.json -w '%{http_code}' \
+            -X POST -H 'Content-type: application/json' \
+            --data "$PAYLOAD" "$SLACK_WEBHOOK_URL")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "slack post failed: $HTTP_CODE"
+            cat /tmp/slack_resp.json
+            exit 1
+          fi
+          echo "slack ok: $HTTP_CODE"
+
+      - name: Enqueue AO dispatch (Option B)
+        if: steps.ctx.outputs.fire == 'true' && inputs.dispatch_ao == 'true'
+        env:
+          AO_TOKEN: ${{ secrets.ao_dispatch_token }}
+          PR_URL: ${{ steps.ctx.outputs.pr_url }}
+          AUTHOR: ${{ steps.ctx.outputs.comment_author }}
+          REPO: ${{ steps.ctx.outputs.repo }}
+        run: |
+          set -euo pipefail
+          if [ -z "${AO_TOKEN:-}" ]; then
+            echo "AO_TOKEN not set — skipping AO enqueue"
+            exit 0
+          fi
+          PAYLOAD=$(jq -nc \
+            --arg pr_url   "$PR_URL" \
+            --arg author   "$AUTHOR" \
+            --arg repo     "$REPO" \
+            --arg task     "run /skeptic + /er on $PR_URL (auto-triggered by @hermes tag from $AUTHOR)" \
+            '{pr_url: $pr_url, author: $author, repo: $repo, task: $task}')
+
+          HTTP_CODE=$(curl -sS -o /tmp/ao_resp.json -w '%{http_code}' \
+            -X POST -H "Authorization: Bearer $AO_TOKEN" \
+            -H 'Content-type: application/json' \
+            --data "$PAYLOAD" \
+            "${HERMES_AO_DISPATCH_URL:-http://127.0.0.1:8643/hooks/ao-dispatch}")
+          echo "AO dispatch http: $HTTP_CODE"
+          cat /tmp/ao_resp.json
