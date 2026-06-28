@@ -1,33 +1,302 @@
-# Calls the reusable @hermes mention listener from jleechanorg/.github.
-# Fires on PR open/edit, issue_comment, and PR review_comment events.
-#
-# Required repo secret:
-#   HERMES_SLACK_WEBHOOK_URL — incoming webhook for the target Slack channel
-#
-# Permissions note: pull-requests: write + issues: write are required for the
-# reusable workflow to add the 👀 ack reaction and post the ack comment.
-# See jleechanorg/.github PR #10 for the full design.
+# .github/workflows/hermes-pr-tag-listener.yml
+# Reusable workflow: tag @hermes (U0AEZC7RX1Q) on a PR →
+#   1. 👀 ack reaction on the triggering comment
+#   2. :wave: ack comment on the PR ("got it, working on it")
+#   3. Slack ping to the configured channel
+#   4. Optional: enqueue AO worker (set `dispatch_ao: 'true'`)
+#   5. Optional: final completion comment when AO worker fires
+#      `repository_dispatch` event of type `hermes-task-completed`
+#      with payload {pr_number, task_id, status, result}
 
-name: hermes-pr-tag-listener
+name: hermes-pr-tag-listener (reusable)
 
 on:
-  pull_request:
-    types: [opened, edited]
-  issue_comment:
-    types: [created, edited]
-  pull_request_review_comment:
-    types: [created, edited]
+  workflow_call:
+    inputs:
+      slack_channel:
+        description: 'Slack channel name (#worldai-bugs) or ID (C0BDEAJH8PK) for the @hermes ping.'
+        type: string
+        required: true
+      dispatch_ao:
+        description: "Set 'true' to also POST an AO-dispatch payload."
+        type: string
+        default: 'false'
+      hermes_user_id:
+        description: 'Slack user ID of the hermes bot (default U0AEZC7RX1Q).'
+        type: string
+        default: 'U0AEZC7RX1Q'
+      ack_reaction:
+        description: 'GitHub reaction name to add (default: eyes).'
+        type: string
+        default: 'eyes'
+    secrets:
+      slack_webhook_url:
+        description: 'Incoming webhook URL for the target Slack channel.'
+        required: true
+      ao_dispatch_token:
+        description: 'Optional bearer token for the AO dispatcher endpoint.'
+        required: false
 
 permissions:
   contents: read
-  pull-requests: write   # required for ack reaction + ack comment
-  issues: write          # required for ack reaction + ack comment
+  pull-requests: write
+  issues: write
 
 jobs:
   notify:
-    uses: jleechanorg/.github/.github/workflows/hermes-pr-tag-listener.yml@main
-    with:
-      slack_channel: ${{ vars.HERMES_SLACK_CHANNEL || '#worldai-bugs' }}
-      dispatch_ao: 'false'
-    secrets:
-      slack_webhook_url: ${{ secrets.HERMES_SLACK_WEBHOOK_URL }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Extract PR context
+        id: ctx
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HERMES_USER_ID: ${{ inputs.hermes_user_id }}
+        run: |
+          set -euo pipefail
+          EVENT="$EVENT_NAME"
+          REPO="${{ github.repository }}"
+          ACTOR="${{ github.actor }}"
+          PR_URL=""
+          PR_NUMBER=""
+          COMMENT_BODY=""
+          COMMENT_ID=""
+          COMMENT_AUTHOR=""
+          PR_TITLE=""
+          COMMENT_KIND=""
+
+          if [ "$EVENT" = "issue_comment" ]; then
+            COMMENT_BODY=$(jq -r '.comment.body // ""' "$GITHUB_EVENT_PATH")
+            COMMENT_ID=$(jq -r '.comment.id // ""' "$GITHUB_EVENT_PATH")
+            COMMENT_AUTHOR=$(jq -r '.comment.user.login // ""' "$GITHUB_EVENT_PATH")
+            PR_NUMBER=$(jq -r '.issue.number // ""' "$GITHUB_EVENT_PATH")
+            PR_URL="https://github.com/$REPO/pull/$PR_NUMBER"
+            COMMENT_KIND="issue_comment"
+          elif [ "$EVENT" = "pull_request" ]; then
+            PR_NUMBER=$(jq -r '.pull_request.number // ""' "$GITHUB_EVENT_PATH")
+            PR_TITLE=$(jq -r '.pull_request.title // ""' "$GITHUB_EVENT_PATH")
+            PR_URL=$(jq -r '.pull_request.html_url // ""' "$GITHUB_EVENT_PATH")
+            COMMENT_AUTHOR="$ACTOR"
+            COMMENT_KIND="pr_title"
+          elif [ "$EVENT" = "pull_request_review_comment" ]; then
+            COMMENT_BODY=$(jq -r '.comment.body // ""' "$GITHUB_EVENT_PATH")
+            COMMENT_ID=$(jq -r '.comment.id // ""' "$GITHUB_EVENT_PATH")
+            COMMENT_AUTHOR=$(jq -r '.comment.user.login // ""' "$GITHUB_EVENT_PATH")
+            PR_NUMBER=$(jq -r '.pull_request.number // ""' "$GITHUB_EVENT_PATH")
+            PR_URL="https://github.com/$REPO/pull/$PR_NUMBER"
+            COMMENT_KIND="review_comment"
+          elif [ "$EVENT" = "repository_dispatch" ]; then
+            RD_TYPE=$(jq -r '.action // ""' "$GITHUB_EVENT_PATH")
+            if [ "$RD_TYPE" != "hermes-task-completed" ]; then
+              echo "not a hermes completion event: $RD_TYPE"
+              echo "fire=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            RD_PAYLOAD=$(jq -c '.client_payload // {}' "$GITHUB_EVENT_PATH")
+            PR_NUMBER=$(echo "$RD_PAYLOAD" | jq -r '.pr_number // ""')
+            RESULT=$(echo "$RD_PAYLOAD" | jq -r '.result // ""')
+            STATUS=$(echo "$RD_PAYLOAD" | jq -r '.status // "done"')
+            TASK_ID=$(echo "$RD_PAYLOAD" | jq -r '.task_id // ""')
+            REPO_NAME=$(echo "$RD_PAYLOAD" | jq -r '.repo // ""')
+            if [ -n "$REPO_NAME" ] && [ "$REPO_NAME" != "$REPO" ]; then
+              echo "completion event for $REPO_NAME does not match this repo ($REPO)"
+              echo "fire=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            PR_URL="https://github.com/$REPO/pull/$PR_NUMBER"
+            echo "fire=true" >> "$GITHUB_OUTPUT"
+            echo "completion=true" >> "$GITHUB_OUTPUT"
+            echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+            echo "result<<EOF" >> "$GITHUB_OUTPUT"
+            printf '%s' "$RESULT" >> "$GITHUB_OUTPUT"
+            echo "" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+            echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+            echo "task_id=$TASK_ID" >> "$GITHUB_OUTPUT"
+            echo "repo=$REPO" >> "$GITHUB_OUTPUT"
+            exit 0
+          else
+            echo "Unsupported event: $EVENT"; exit 0
+          fi
+
+          MENTION_REGEX='@hermes\b|<@'"$HERMES_USER_ID"'>'
+          if ! printf '%s' "$COMMENT_BODY$PR_TITLE" | grep -Eqi "$MENTION_REGEX"; then
+            echo "no @hermes mention — skipping"
+            echo "fire=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          TASK_ID="hermes-$(date +%s)-$RANDOM"
+
+          echo "fire=true" >> "$GITHUB_OUTPUT"
+          echo "completion=false" >> "$GITHUB_OUTPUT"
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          echo "comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
+          echo "comment_kind=$COMMENT_KIND" >> "$GITHUB_OUTPUT"
+          echo "comment_author=$COMMENT_AUTHOR" >> "$GITHUB_OUTPUT"
+          echo "comment_body<<EOF" >> "$GITHUB_OUTPUT"
+          printf '%s' "$COMMENT_BODY" >> "$GITHUB_OUTPUT"
+          echo "" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "pr_title=$PR_TITLE" >> "$GITHUB_OUTPUT"
+          echo "repo=$REPO" >> "$GITHUB_OUTPUT"
+          echo "task_id=$TASK_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Add ack reaction to triggering comment
+        if: steps.ctx.outputs.fire == 'true' && steps.ctx.outputs.completion != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ steps.ctx.outputs.repo }}
+          COMMENT_ID: ${{ steps.ctx.outputs.comment_id }}
+          COMMENT_KIND: ${{ steps.ctx.outputs.comment_kind }}
+          REACTION: ${{ inputs.ack_reaction }}
+        run: |
+          set -euo pipefail
+          if [ "$COMMENT_KIND" = "pr_title" ] || [ -z "$COMMENT_ID" ]; then
+            echo "no comment to react to (kind=$COMMENT_KIND); skipping reaction"
+            exit 0
+          fi
+          API_URL="repos/${REPO}/issues/comments/${COMMENT_ID}/reactions"
+          HTTP_CODE=$(curl -sS -o /tmp/rxn.json -w '%{http_code}' \
+            -X POST \
+            -H "Authorization: token ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${GITHUB_API_URL}/${API_URL}" \
+            -d "$(jq -nc --arg c "$REACTION" '{content: $c}')")
+          if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ]; then
+            echo "reaction add failed: $HTTP_CODE"
+            cat /tmp/rxn.json
+            exit 0
+          fi
+          echo "reaction ok: $HTTP_CODE ($REACTION)"
+
+      - name: Post ack comment on the PR
+        if: steps.ctx.outputs.fire == 'true' && steps.ctx.outputs.completion != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ steps.ctx.outputs.repo }}
+          PR_NUMBER: ${{ steps.ctx.outputs.pr_number }}
+          AUTHOR: ${{ steps.ctx.outputs.comment_author }}
+          TASK_ID: ${{ steps.ctx.outputs.task_id }}
+        run: |
+          set -euo pipefail
+          ACK_BODY=$(printf '\n> 🤖 **hermes picked this up** — working on it.\n>\n> tracking: \`%s\`\n>\n> I will post a follow-up comment here when work is complete.\n\n<!-- hermes-task: %s -->' "$TASK_ID" "$TASK_ID")
+          HTTP_CODE=$(curl -sS -o /tmp/ack.json -w '%{http_code}' \
+            -X POST \
+            -H "Authorization: token ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${GITHUB_API_URL}/repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            -d "$(jq -nc --arg b "$ACK_BODY" '{body: $b}')")
+          if [ "$HTTP_CODE" != "201" ]; then
+            echo "ack comment failed: $HTTP_CODE"
+            cat /tmp/ack.json
+            exit 0
+          fi
+          ACK_ID=$(jq -r '.id // ""' /tmp/ack.json)
+          echo "ack comment ok: $HTTP_CODE (id=$ACK_ID)"
+
+      - name: Post to Slack
+        if: steps.ctx.outputs.fire == 'true' && steps.ctx.outputs.completion != 'true'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.slack_webhook_url }}
+          CHANNEL: ${{ inputs.slack_channel }}
+          PR_URL: ${{ steps.ctx.outputs.pr_url }}
+          PR_NUMBER: ${{ steps.ctx.outputs.pr_number }}
+          AUTHOR: ${{ steps.ctx.outputs.comment_author }}
+          REPO: ${{ steps.ctx.outputs.repo }}
+          EVENT: ${{ github.event_name }}
+          TASK_ID: ${{ steps.ctx.outputs.task_id }}
+        run: |
+          set -euo pipefail
+          TEXT=$(printf ':wave: *@hermes tagged* by \`%s\` on \`%s\` PR #%s — %s\n  •  task: \`%s\`' "$AUTHOR" "$REPO" "$PR_NUMBER" "$PR_URL" "$TASK_ID")
+
+          PAYLOAD=$(jq -nc \
+            --arg channel  "$CHANNEL" \
+            --arg text     "$TEXT" \
+            '{channel: $channel, text: $text, blocks: [
+              {type: "section", text: {type: "mrkdwn", text: $text}},
+              {type: "context", elements: [
+                {type: "mrkdwn", text: (":link: <" + ($PR_URL // "") + "|open PR>  •  event: \`" + ($EVENT // "") + "\`  •  repo: \`" + ($REPO // "") + "\`")}
+              ]}
+            ]}')
+
+          HTTP_CODE=$(curl -sS -o /tmp/slack_resp.json -w '%{http_code}' \
+            -X POST -H 'Content-type: application/json' \
+            --data "$PAYLOAD" "$SLACK_WEBHOOK_URL")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "slack post failed: $HTTP_CODE"
+            cat /tmp/slack_resp.json
+            exit 1
+          fi
+          echo "slack ok: $HTTP_CODE"
+
+      - name: Enqueue AO dispatch (Option B)
+        if: steps.ctx.outputs.fire == 'true' && steps.ctx.outputs.completion != 'true' && inputs.dispatch_ao == 'true'
+        env:
+          AO_TOKEN: ${{ secrets.ao_dispatch_token }}
+          PR_URL: ${{ steps.ctx.outputs.pr_url }}
+          AUTHOR: ${{ steps.ctx.outputs.comment_author }}
+          REPO: ${{ steps.ctx.outputs.repo }}
+          TASK_ID: ${{ steps.ctx.outputs.task_id }}
+          COMMENT_BODY: ${{ steps.ctx.outputs.comment_body }}
+        run: |
+          set -euo pipefail
+          if [ -z "${AO_TOKEN:-}" ]; then
+            echo "AO_TOKEN not set — skipping AO enqueue"
+            exit 0
+          fi
+          PAYLOAD=$(jq -nc \
+            --arg pr_url   "$PR_URL" \
+            --arg author   "$AUTHOR" \
+            --arg repo     "$REPO" \
+            --arg task     "$COMMENT_BODY" \
+            --arg task_id  "$TASK_ID" \
+            '{pr_url: $pr_url, author: $author, repo: $repo, task: $task, task_id: $task_id, completion_event: "hermes-task-completed"}')
+
+          HTTP_CODE=$(curl -sS -o /tmp/ao_resp.json -w '%{http_code}' \
+            -X POST -H "Authorization: Bearer ${AO_TOKEN}" \
+            -H 'Content-type: application/json' \
+            --data "$PAYLOAD" \
+            "${HERMES_AO_DISPATCH_URL:-http://127.0.0.1:8643/hooks/ao-dispatch}")
+          echo "AO dispatch http: $HTTP_CODE"
+          cat /tmp/ao_resp.json
+
+      - name: Post final completion comment on the PR
+        if: steps.ctx.outputs.fire == 'true' && steps.ctx.outputs.completion == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ steps.ctx.outputs.repo }}
+          PR_NUMBER: ${{ steps.ctx.outputs.pr_number }}
+          STATUS: ${{ steps.ctx.outputs.status }}
+          RESULT: ${{ steps.ctx.outputs.result }}
+          TASK_ID: ${{ steps.ctx.outputs.task_id }}
+          SLACK_WEBHOOK_URL: ${{ secrets.slack_webhook_url }}
+          CHANNEL: ${{ inputs.slack_channel }}
+          PR_URL: ${{ steps.ctx.outputs.pr_url }}
+        run: |
+          set -euo pipefail
+          EMOJI=":white_check_mark:"
+          if [ "$STATUS" = "failed" ]; then EMOJI=":x:"; fi
+          if [ "$STATUS" = "blocked" ]; then EMOJI=":warning:"; fi
+          BODY=$(printf '\n> %s **hermes done** — status: %s\n>\n> %s\n\n<!-- hermes-task: %s status: %s -->' "$EMOJI" "$STATUS" "$RESULT" "$TASK_ID" "$STATUS")
+          HTTP_CODE=$(curl -sS -o /tmp/done.json -w '%{http_code}' \
+            -X POST \
+            -H "Authorization: token ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${GITHUB_API_URL}/repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            -d "$(jq -nc --arg b "$BODY" '{body: $b}')")
+          if [ "$HTTP_CODE" != "201" ]; then
+            echo "completion comment failed: $HTTP_CODE"
+            cat /tmp/done.json
+            exit 0
+          fi
+          echo "completion comment ok: $HTTP_CODE"
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            SLACK_TEXT=$(printf '%s *hermes done* on \`%s\` PR #%s (status: \`%s\`)\n  •  task: \`%s\`\n  •  %s' "$EMOJI" "$REPO" "$PR_NUMBER" "$STATUS" "$TASK_ID" "$PR_URL")
+            curl -sS -o /dev/null -w '%{http_code}\n' \
+              -X POST -H 'Content-type: application/json' \
+              --data "$(jq -nc --arg c "$CHANNEL" --arg t "$SLACK_TEXT" '{channel: $c, text: $t}')" \
+              "$SLACK_WEBHOOK_URL" || true
+          fi
