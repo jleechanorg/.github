@@ -288,12 +288,13 @@ jobs:
           fi
           echo "completion comment ok: $HTTP_CODE"
           if [ -n "$SLACK_WEBHOOK_URL" ]; then
-            SLACK_TEXT=$(printf '%s *hermes done* on `%s` PR #%s (status: `%s`)\n  •  task: `%s`\n  •  %s' "$EMOJI" "$REPO" "$PR_NUMBER" "$STATUS" "$TASK_ID" "$PR_URL")
-            cat > /tmp/slack_done.json <<JSON
-            {"channel": "$CHANNEL", "text": "$SLACK_TEXT"}
-            JSON
+            SLACK_TEXT=$(printf '%s *hermes done* on %s PR #%s (status: %s)  -  task: %s  -  %s' "$EMOJI" "$REPO" "$PR_NUMBER" "$STATUS" "$TASK_ID" "$PR_URL")
+            SLACK_PAYLOAD=$(jq -nc \
+              --arg channel "$CHANNEL" \
+              --arg text "$SLACK_TEXT" \
+              '{channel: $channel, text: $text}')
             curl -sS -o /dev/null -w '%{http_code}\n' \
               -X POST -H 'Content-type: application/json' \
-              --data @/tmp/slack_done.json \
+              --data "$SLACK_PAYLOAD" \
               "$SLACK_WEBHOOK_URL" || true
           fi
