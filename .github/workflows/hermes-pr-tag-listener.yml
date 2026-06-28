@@ -1,13 +1,3 @@
-# .github/workflows/hermes-pr-tag-listener.yml
-# Reusable workflow: tag @hermes (U0AEZC7RX1Q) on a PR →
-#   1. 👀 ack reaction on the triggering comment
-#   2. :wave: ack comment on the PR ("got it, working on it")
-#   3. Slack ping to the configured channel
-#   4. Optional: enqueue AO worker (set `dispatch_ao: 'true'`)
-#   5. Optional: final completion comment when AO worker fires
-#      `repository_dispatch` event of type `hermes-task-completed`
-#      with payload {pr_number, task_id, status, result}
-
 name: hermes-pr-tag-listener (reusable)
 
 on:
@@ -93,11 +83,11 @@ jobs:
               exit 0
             fi
             RD_PAYLOAD=$(jq -c '.client_payload // {}' "$GITHUB_EVENT_PATH")
-            PR_NUMBER=$(echo "$RD_PAYLOAD" | jq -r '.pr_number // ""')
-            RESULT=$(echo "$RD_PAYLOAD" | jq -r '.result // ""')
-            STATUS=$(echo "$RD_PAYLOAD" | jq -r '.status // "done"')
-            TASK_ID=$(echo "$RD_PAYLOAD" | jq -r '.task_id // ""')
-            REPO_NAME=$(echo "$RD_PAYLOAD" | jq -r '.repo // ""')
+            PR_NUMBER=$(printf '%s' "$RD_PAYLOAD" | jq -r '.pr_number // ""')
+            RESULT=$(printf '%s' "$RD_PAYLOAD" | jq -r '.result // ""')
+            STATUS=$(printf '%s' "$RD_PAYLOAD" | jq -r '.status // "done"')
+            TASK_ID=$(printf '%s' "$RD_PAYLOAD" | jq -r '.task_id // ""')
+            REPO_NAME=$(printf '%s' "$RD_PAYLOAD" | jq -r '.repo // ""')
             if [ -n "$REPO_NAME" ] && [ "$REPO_NAME" != "$REPO" ]; then
               echo "completion event for $REPO_NAME does not match this repo ($REPO)"
               echo "fire=false" >> "$GITHUB_OUTPUT"
@@ -182,7 +172,7 @@ jobs:
           TASK_ID: ${{ steps.ctx.outputs.task_id }}
         run: |
           set -euo pipefail
-          ACK_BODY=$(printf '\n> 🤖 **hermes picked this up** — working on it.\n>\n> tracking: \`%s\`\n>\n> I will post a follow-up comment here when work is complete.\n\n<!-- hermes-task: %s -->' "$TASK_ID" "$TASK_ID")
+          ACK_BODY=$(printf '\n> 🤖 **hermes picked this up** — working on it.\n>\n> tracking: %s\n>\n> I will post a follow-up comment here when work is complete.\n\n<!-- hermes-task: %s -->' "$TASK_ID" "$TASK_ID")
           HTTP_CODE=$(curl -sS -o /tmp/ack.json -w '%{http_code}' \
             -X POST \
             -H "Authorization: token ${GH_TOKEN}" \
@@ -210,21 +200,25 @@ jobs:
           TASK_ID: ${{ steps.ctx.outputs.task_id }}
         run: |
           set -euo pipefail
-          TEXT=$(printf ':wave: *@hermes tagged* by \`%s\` on \`%s\` PR #%s — %s\n  •  task: \`%s\`' "$AUTHOR" "$REPO" "$PR_NUMBER" "$PR_URL" "$TASK_ID")
+          TEXT=":wave: *@hermes tagged* by \`${AUTHOR}\` on \`${REPO}\` PR #${PR_NUMBER} — ${PR_URL}  •  task: \`${TASK_ID}\`"
 
-          PAYLOAD=$(jq -nc \
-            --arg channel  "$CHANNEL" \
-            --arg text     "$TEXT" \
-            '{channel: $channel, text: $text, blocks: [
-              {type: "section", text: {type: "mrkdwn", text: $text}},
-              {type: "context", elements: [
-                {type: "mrkdwn", text: (":link: <" + ($PR_URL // "") + "|open PR>  •  event: \`" + ($EVENT // "") + "\`  •  repo: \`" + ($REPO // "") + "\`")}
+          # Use a temp file for the payload to avoid shell-escape issues
+          cat > /tmp/slack_payload.json <<JSON
+          {
+            "channel": "$CHANNEL",
+            "text": "$TEXT",
+            "blocks": [
+              {"type": "section", "text": {"type": "mrkdwn", "text": "$TEXT"}},
+              {"type": "context", "elements": [
+                {"type": "mrkdwn", "text": ":link: <$PR_URL|open PR>  •  event: \`$EVENT\`  •  repo: \`$REPO\`"}
               ]}
-            ]}')
+            ]
+          }
+          JSON
 
           HTTP_CODE=$(curl -sS -o /tmp/slack_resp.json -w '%{http_code}' \
             -X POST -H 'Content-type: application/json' \
-            --data "$PAYLOAD" "$SLACK_WEBHOOK_URL")
+            --data @/tmp/slack_payload.json "$SLACK_WEBHOOK_URL")
           if [ "$HTTP_CODE" != "200" ]; then
             echo "slack post failed: $HTTP_CODE"
             cat /tmp/slack_resp.json
@@ -294,9 +288,12 @@ jobs:
           fi
           echo "completion comment ok: $HTTP_CODE"
           if [ -n "$SLACK_WEBHOOK_URL" ]; then
-            SLACK_TEXT=$(printf '%s *hermes done* on \`%s\` PR #%s (status: \`%s\`)\n  •  task: \`%s\`\n  •  %s' "$EMOJI" "$REPO" "$PR_NUMBER" "$STATUS" "$TASK_ID" "$PR_URL")
+            SLACK_TEXT=$(printf '%s *hermes done* on `%s` PR #%s (status: `%s`)\n  •  task: `%s`\n  •  %s' "$EMOJI" "$REPO" "$PR_NUMBER" "$STATUS" "$TASK_ID" "$PR_URL")
+            cat > /tmp/slack_done.json <<JSON
+            {"channel": "$CHANNEL", "text": "$SLACK_TEXT"}
+            JSON
             curl -sS -o /dev/null -w '%{http_code}\n' \
               -X POST -H 'Content-type: application/json' \
-              --data "$(jq -nc --arg c "$CHANNEL" --arg t "$SLACK_TEXT" '{channel: $c, text: $t}')" \
+              --data @/tmp/slack_done.json \
               "$SLACK_WEBHOOK_URL" || true
           fi
