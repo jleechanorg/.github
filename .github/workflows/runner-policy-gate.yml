@@ -1,0 +1,93 @@
+# Hard-enforcement runner policy gate (opt-in per repo).
+#
+# Add this file to a consuming repo as `.github/workflows/runner-policy-gate.yml`
+# to fail PRs that introduce workflows violating the org runner-defaults policy.
+#
+# For private repos: any new/changed workflow using `runs-on: ubuntu-latest` (etc.)
+# without a `# runner-override:` comment will fail this gate.
+#
+# For public repos: any new/changed workflow using `runs-on: self-hosted`
+# without a `# runner-override:` comment will fail this gate.
+name: Runner Policy Gate (opt-in hard enforcement)
+
+on:
+  pull_request:
+    paths: ['.github/workflows/**']
+
+jobs:
+  enforce:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed workflow files
+        id: changed
+        run: |
+          # PR-only — files changed in this PR vs base
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- '.github/workflows/*.yml' '.github/workflows/*.yaml' || true)
+          echo "changed<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "files=$CHANGED"
+
+      - name: Detect repo visibility
+        id: visibility
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VIS=$(gh api repos/${{ github.repository }} --jq '.private | if . then "private" else "public" end')
+          echo "visibility=$VIS" >> $GITHUB_OUTPUT
+          echo "Repo visibility: $VIS"
+
+      - name: Audit each changed workflow for runner policy
+        env:
+          CHANGED: ${{ steps.changed.outputs.changed }}
+          VIS: ${{ steps.visibility.outputs.visibility }}
+        run: |
+          set +e
+          FAIL=0
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            [ ! -f "$f" ] && continue
+            echo "--- Auditing $f ---"
+            # Strip blank lines and check runs-on declarations
+            python3 - "$f" "$VIS" <<'PYEOF'
+          import re, sys
+          path, vis = sys.argv[1], sys.argv[2]
+          with open(path) as fh:
+              text = fh.read()
+          # Split into per-job sections
+          # Find every "runs-on:" and the 3 lines preceding it (to look for the override comment)
+          violations = []
+          for m in re.finditer(r"runs-on:\s*([^\n#]+)", text):
+              runner = m.group(1).strip()
+              start = max(0, m.start() - 400)
+              context = text[start:m.start()]
+              has_override = "runner-override" in context
+              if vis == "private" and runner.startswith("ubuntu") or runner.startswith("macos") or runner.startswith("windows"):
+                  if not has_override:
+                      violations.append(f"  - line ~{text[:m.start()].count(chr(10))+1}: '{runner}' is GitHub-hosted in a PRIVATE repo without # runner-override comment")
+              if vis == "public" and "self-hosted" in runner:
+                  if not has_override:
+                      violations.append(f"  - line ~{text[:m.start()].count(chr(10))+1}: '{runner}' is self-hosted in a PUBLIC repo without # runner-override comment")
+          if violations:
+              print(f"VIOLATIONS in {path} ({vis} repo):")
+              for v in violations:
+                  print(v)
+              sys.exit(2)
+          PYEOF
+            if [ $? -ne 0 ]; then
+              FAIL=1
+            fi
+          done <<< "$CHANGED"
+          if [ $FAIL -ne 0 ]; then
+            echo "::error title=Runner policy violations found::Add # runner-override comments above each non-default runner, OR fix the runner choice."
+            exit 1
+          fi
+          echo "All changed workflows comply with runner-defaults policy."
