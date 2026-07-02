@@ -4,9 +4,9 @@ on:
   workflow_call:
     inputs:
       slack_channel:
-        description: 'Slack channel name (#worldai-bugs) or ID (C0BDEAJH8PK) for the @hermes ping.'
+        description: 'Slack channel name (#ai-general) or ID (C0AJQ5M0A0Y) for the @hermes ping. Call-sites should override per-repo to the appropriate channel.'
         type: string
-        required: true
+        default: '#ai-general'
       dispatch_ao:
         description: "Set 'true' to also POST an AO-dispatch payload."
         type: string
