@@ -37,6 +37,71 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
+      - name: Derive Slack channel from repo (auto-routing default)
+        id: route
+        env:
+          INPUT_CHANNEL: ${{ inputs.slack_channel }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          # Auto-derive channel from repo when caller left the input as the default
+          # ('#ai-general'). Call-sites that explicitly override (e.g. '#jleechanclaw',
+          # '#worldai') are honored as-is. This makes the SOUL.md per-repo routing
+          # table (COMMIT hermes-tag-webhook-per-repo-routing) the default for any
+          # jleechanorg/* repo that uses the reusable workflow without an explicit
+          # slack_channel override.
+          CHANNEL="$INPUT_CHANNEL"
+
+          if [ "$CHANNEL" = "#ai-general" ] || [ -z "$CHANNEL" ]; then
+            case "$REPO" in
+              jleechanorg/jleechanclaw|jleechanorg/jleechanclaw_pub)
+                CHANNEL='#jleechanclaw' ;;
+              jleechanorg/worldarchitect.ai)
+                CHANNEL='#worldai' ;;
+              jleechanorg/.github)
+                CHANNEL='#worldai' ;;
+              jleechanorg/worldai*|jleechanorg/worldai_claw|jleechanorg/worldai-mcp|jleechanorg/worldai_genesis*)
+                CHANNEL='#worldai' ;;
+              jleechanorg/agent-orchestrator|jleechanorg/dark-factory*)
+                CHANNEL='#agent-orchestrator' ;;
+              jleechanorg/cmux*)
+                CHANNEL='#cmux' ;;
+              jleechanorg/ai_universe*)
+                CHANNEL='#ai-universe' ;;
+              jleechanorg/browserclaw)
+                CHANNEL='#browserclaw' ;;
+              jleechanorg/cindil-health)
+                CHANNEL='#cindil-health' ;;
+              jleechanorg/jleechanbrain|jleechanbrain/*)
+                CHANNEL='#jleechanbrain' ;;
+              jleechanorg/hermes-agent_archive*)
+                CHANNEL='#hermes-archive' ;;
+              jleechanorg/mcp_mail|jleechanorg/mcp_lego|jleechanorg/agent_bridge)
+                CHANNEL='#mcp-mail' ;;
+              jleechanorg/llm*)
+                CHANNEL='#llm' ;;
+              jleechanorg/ralph*)
+                CHANNEL='#ralph-status' ;;
+              jleechanorg/openclaw*)
+                CHANNEL='#openclaw-chatter' ;;
+              *)
+                # Org-wide default for jleechanorg/* and unknown repos
+                if [ "$OWNER" = "jleechanorg" ]; then
+                  CHANNEL='#ai-general'
+                else
+                  # Other orgs (e.g. Agnt-F) get their own default — caller can override via input
+                  CHANNEL='#ai-general'
+                fi
+                ;;
+            esac
+            echo "auto-routed $REPO -> $CHANNEL"
+          else
+            echo "explicit channel from caller: $CHANNEL"
+          fi
+
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+
       - name: Extract PR context
         id: ctx
         env:
@@ -191,7 +256,7 @@ jobs:
         if: steps.ctx.outputs.fire == 'true' && steps.ctx.outputs.completion != 'true'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.slack_webhook_url }}
-          CHANNEL: ${{ inputs.slack_channel }}
+          CHANNEL: ${{ steps.route.outputs.channel }}
           PR_URL: ${{ steps.ctx.outputs.pr_url }}
           PR_NUMBER: ${{ steps.ctx.outputs.pr_number }}
           AUTHOR: ${{ steps.ctx.outputs.comment_author }}
@@ -267,7 +332,7 @@ jobs:
           RESULT: ${{ steps.ctx.outputs.result }}
           TASK_ID: ${{ steps.ctx.outputs.task_id }}
           SLACK_WEBHOOK_URL: ${{ secrets.slack_webhook_url }}
-          CHANNEL: ${{ inputs.slack_channel }}
+          CHANNEL: ${{ steps.route.outputs.channel }}
           PR_URL: ${{ steps.ctx.outputs.pr_url }}
         run: |
           set -euo pipefail
