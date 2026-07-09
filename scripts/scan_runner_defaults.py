@@ -84,6 +84,14 @@ def scan_repo(name: str, visibility: str, org: str = "jleechanorg") -> dict:
                     content = f.read()
                 runs_on_list = []
                 for m in re.finditer(r"runs-on\s*:", content):
+                    line_start = content.rfind("\n", 0, m.start()) + 1
+                    line_end = content.find("\n", m.end())
+                    if line_end == -1:
+                        line_end = len(content)
+                    line = content[line_start:line_end]
+                    if line.strip().startswith("#"):
+                        continue
+
                     runners = parse_runners(content, m.end())
                     if not runners:
                         continue
