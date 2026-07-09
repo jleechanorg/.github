@@ -7,23 +7,50 @@ import re
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import scripts.scan_runner_defaults as scan_runner_defaults
 
+def parse_runners(text: str, match_end_idx: int) -> list[str]:
+    after_colon = text[match_end_idx:]
+    first_line = after_colon.split("\n", 1)[0]
+    inline_part = first_line.split("#", 1)[0].strip()
+    if inline_part:
+        if inline_part.startswith("[") and inline_part.endswith("]"):
+            items = inline_part[1:-1].split(",")
+            return [item.strip(" '\"") for item in items if item.strip()]
+        else:
+            return [inline_part.strip(" '\"")]
+    lines = after_colon.splitlines()[1:]
+    runners = []
+    for line in lines:
+        if not line.strip():
+            continue
+        if line.strip().startswith("#"):
+            continue
+        m = re.match(r"^\s+-\s*([^\n#]+)", line)
+        if m:
+            item = m.group(1).strip().strip(" '\"")
+            runners.append(item)
+        else:
+            break
+    return runners
+
 def run_gate_logic(text: str, vis: str) -> list[str]:
     """Helper mimicking the Python audit logic in runner-policy-gate.yml."""
     violations = []
-    for m in re.finditer(r"runs-on:\s*([^\n#]+)", text):
-        runner = m.group(1).strip()
-        start = max(0, m.start() - 400)
-        context = text[start:m.start()]
-        has_override = "runner-override" in context
+    for m in re.finditer(r"runs-on\s*:", text):
+        runners = parse_runners(text, m.end())
+        if not runners:
+            continue
         
-        # Strip wrapping quotes or brackets from runner if present
-        r_clean = runner.strip("['\" ]")
-        if vis == "private" and (r_clean.startswith("ubuntu") or r_clean.startswith("macos") or r_clean.startswith("windows")):
-            if not has_override:
-                violations.append(f"violation: private-hosted-{runner}")
-        if vis == "public" and "self-hosted" in r_clean:
-            if not has_override:
-                violations.append(f"violation: public-self-hosted-{runner}")
+        preceding_lines = [line for line in text[:m.start()].splitlines() if line.strip()]
+        recent_lines = preceding_lines[-2:] if len(preceding_lines) >= 2 else preceding_lines
+        has_override = any(re.search(r"^\s*#\s*runner-override", line) for line in recent_lines)
+        
+        for runner in runners:
+            if vis == "private" and (runner.startswith("ubuntu") or runner.startswith("macos") or runner.startswith("windows")):
+                if not has_override:
+                    violations.append(f"violation: private-hosted-{runner}")
+            if vis == "public" and "self-hosted" in runner:
+                if not has_override:
+                    violations.append(f"violation: public-self-hosted-{runner}")
     return violations
 
 class TestRunnerPolicyGate(unittest.TestCase):
@@ -60,6 +87,19 @@ class TestRunnerPolicyGate(unittest.TestCase):
         text = "runs-on: self-hosted"
         violations = run_gate_logic(text, "private")
         self.assertEqual(violations, [], "self-hosted on private repo should be allowed")
+
+    def test_multiline_runs_on(self):
+        """Multiline runs-on blocks should be parsed and checked for violations."""
+        text = "runs-on:\n  - linux\n  - self-hosted"
+        violations = run_gate_logic(text, "public")
+        self.assertTrue(len(violations) > 0, "Multiline self-hosted on public repo should violate policy")
+
+    def test_strict_override_context(self):
+        """Override comment must be adjacent/preceding, not leak from unrelated context."""
+        text = "jobs:\n  job1:\n    # runner-override: testing\n    runs-on: ubuntu-latest\n  job2:\n    runs-on: ubuntu-latest"
+        violations = run_gate_logic(text, "private")
+        # job2 has no override comment directly preceding it, so it should violate policy in a private repo
+        self.assertEqual(len(violations), 1, "job2 should violate policy because its override comment is far away/for job1")
 
 class TestScanRunnerDefaults(unittest.TestCase):
     def test_mixed_violations_not_masked(self):

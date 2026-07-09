@@ -35,9 +35,9 @@ These repos get free GitHub-hosted minutes but are burning MacBook CPU instead.
 | Repo | Workflow files using self-hosted |
 | --- | --- |
 | `mctrl_test` | ci.yml, evidence-gate.yml, skeptic-gate.yml |
-| `agent-orchestrator` | 17 workflow files (ci.yml, release.yml, test.yml, test-main.yml, integration-tests.yml, coverage.yml, skeptic-cron.yml, skeptic-cron-reusable.yml, skeptic-gate.yml, skeptic-gate-reusable.yml, green-gate.yml, evidence-gate.yml, wholesome.yml, wholesome-checks.yml, security.yml, coderabbit-ping-on-push.yml, cr-loop-health.yml, onboarding-test.yml, generate-pr-design-docs.yml) |
-| `smartclaw` | 5 files (ci.yml, green-gate.yml, staging-canary-full.yml, staging-canary-gate.yml, skeptic-cron.yml, coderabbit-ping-on-push.yml) |
-| `hermes-agent` | 14 files (ci.yml, tests.yml, lint.yml, nix.yml, nix-lockfile-fix.yml, uv-lockfile-check.yml, docker-publish.yml, deploy-site.yml, green-gate.yml, supply-chain-audit.yml, osv-scanner.yml, skills-index.yml, docs-site-checks.yml, skeptic-cron.yml, contributor-check.yml) |
+| `agent-orchestrator` | 19 workflow files (ci.yml, release.yml, test.yml, test-main.yml, integration-tests.yml, coverage.yml, skeptic-cron.yml, skeptic-cron-reusable.yml, skeptic-gate.yml, skeptic-gate-reusable.yml, green-gate.yml, evidence-gate.yml, wholesome.yml, wholesome-checks.yml, security.yml, coderabbit-ping-on-push.yml, cr-loop-health.yml, onboarding-test.yml, generate-pr-design-docs.yml) |
+| `smartclaw` | 6 files (ci.yml, green-gate.yml, staging-canary-full.yml, staging-canary-gate.yml, skeptic-cron.yml, coderabbit-ping-on-push.yml) |
+| `hermes-agent` | 15 files (ci.yml, tests.yml, lint.yml, nix.yml, nix-lockfile-fix.yml, uv-lockfile-check.yml, docker-publish.yml, deploy-site.yml, green-gate.yml, supply-chain-audit.yml, osv-scanner.yml, skills-index.yml, docs-site-checks.yml, skeptic-cron.yml, contributor-check.yml) |
 
 **Estimated impact:** `agent-orchestrator` and `hermes-agent` together run ~30 hosted-capable workflows on the MacBook self-hosted runner. Each PR on these repos competes with your actual local dev work for CPU cycles.
 

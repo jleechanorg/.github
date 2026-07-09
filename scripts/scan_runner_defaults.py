@@ -34,6 +34,32 @@ def list_repos(org: str) -> list[tuple[str, str]]:
     return [tuple(line.split("\t")) for line in out.stdout.splitlines() if line.strip()]
 
 
+def parse_runners(text: str, match_end_idx: int) -> list[str]:
+    after_colon = text[match_end_idx:]
+    first_line = after_colon.split("\n", 1)[0]
+    inline_part = first_line.split("#", 1)[0].strip()
+    if inline_part:
+        if inline_part.startswith("[") and inline_part.endswith("]"):
+            items = inline_part[1:-1].split(",")
+            return [item.strip(" '\"") for item in items if item.strip()]
+        else:
+            return [inline_part.strip(" '\"")]
+    lines = after_colon.splitlines()[1:]
+    runners = []
+    for line in lines:
+        if not line.strip():
+            continue
+        if line.strip().startswith("#"):
+            continue
+        m = re.match(r"^\s+-\s*([^\n#]+)", line)
+        if m:
+            item = m.group(1).strip().strip(" '\"")
+            runners.append(item)
+        else:
+            break
+    return runners
+
+
 def scan_repo(name: str, visibility: str, org: str = "jleechanorg") -> dict:
     """Shallow-clone a repo and audit its workflows."""
     full = f"{org}/{name}"
@@ -53,29 +79,34 @@ def scan_repo(name: str, visibility: str, org: str = "jleechanorg") -> dict:
         for fn in sorted(os.listdir(wf_dir)):
             if not (fn.endswith(".yml") or fn.endswith(".yaml")):
                 continue
-            with open(os.path.join(wf_dir, fn)) as f:
-                content = f.read()
-            runs_on = []
-            for m in re.finditer(r"runs-on:\s*([^\n#]+)", content):
-                runner = m.group(1).strip()
-                runs_on.append(runner)
-                start = max(0, m.start() - 400)
-                context = content[start:m.start()]
-                has_override = "runner-override" in context
-                
-                # Check for violation
-                r_clean = runner.strip("['\" ]")
-                is_violation = False
-                if visibility == "private" and (r_clean.startswith("ubuntu") or r_clean.startswith("macos") or r_clean.startswith("windows")):
-                    if not has_override:
-                        is_violation = True
-                elif visibility == "public" and "self-hosted" in r_clean:
-                    if not has_override:
-                        is_violation = True
-                
-                if is_violation:
-                    violations.append({"file": fn, "runner": runner})
-            workflows.append({"file": fn, "runs_on": runs_on})
+            try:
+                with open(os.path.join(wf_dir, fn)) as f:
+                    content = f.read()
+                runs_on_list = []
+                for m in re.finditer(r"runs-on\s*:", content):
+                    runners = parse_runners(content, m.end())
+                    if not runners:
+                        continue
+                    
+                    preceding_lines = [line for line in content[:m.start()].splitlines() if line.strip()]
+                    recent_lines = preceding_lines[-2:] if len(preceding_lines) >= 2 else preceding_lines
+                    has_override = any(re.search(r"^\s*#\s*runner-override", line) for line in recent_lines)
+                    
+                    for runner in runners:
+                        runs_on_list.append(runner)
+                        is_violation = False
+                        if visibility == "private" and (runner.startswith("ubuntu") or runner.startswith("macos") or runner.startswith("windows")):
+                            if not has_override:
+                                is_violation = True
+                        elif visibility == "public" and "self-hosted" in runner:
+                            if not has_override:
+                                is_violation = True
+                        
+                        if is_violation:
+                            violations.append({"file": fn, "runner": runner})
+                workflows.append({"file": fn, "runs_on": runs_on_list})
+            except Exception as e:
+                print(f"Error parsing workflow file {fn} in {name}: {e}", file=sys.stderr)
         return {"repo": name, "visibility": visibility, "workflows": workflows, "violations": violations}
     except subprocess.TimeoutExpired:
         return {"repo": name, "visibility": visibility, "error": "clone timeout"}

@@ -60,27 +60,60 @@ jobs:
             python3 - "$f" "$VIS" <<'PYEOF'
           import re, sys
           path, vis = sys.argv[1], sys.argv[2]
-          with open(path) as fh:
-              text = fh.read()
-          # Split into per-job sections
-          # Find every "runs-on:" and the 3 lines preceding it (to look for the override comment)
-          violations = []
-          for m in re.finditer(r"runs-on:\s*([^\n#]+)", text):
-              runner = m.group(1).strip()
-              start = max(0, m.start() - 400)
-              context = text[start:m.start()]
-              has_override = "runner-override" in context
-              if vis == "private" and (runner.startswith("ubuntu") or runner.startswith("macos") or runner.startswith("windows")):
-                  if not has_override:
-                      violations.append(f"  - line ~{text[:m.start()].count(chr(10))+1}: '{runner}' is GitHub-hosted in a PRIVATE repo without # runner-override comment")
-              if vis == "public" and "self-hosted" in runner:
-                  if not has_override:
-                      violations.append(f"  - line ~{text[:m.start()].count(chr(10))+1}: '{runner}' is self-hosted in a PUBLIC repo without # runner-override comment")
-          if violations:
-              print(f"VIOLATIONS in {path} ({vis} repo):")
-              for v in violations:
-                  print(v)
-              sys.exit(2)
+          
+          def parse_runners(text: str, match_end_idx: int) -> list[str]:
+              after_colon = text[match_end_idx:]
+              first_line = after_colon.split("\n", 1)[0]
+              inline_part = first_line.split("#", 1)[0].strip()
+              if inline_part:
+                  if inline_part.startswith("[") and inline_part.endswith("]"):
+                      items = inline_part[1:-1].split(",")
+                      return [item.strip(" '\"") for item in items if item.strip()]
+                  else:
+                      return [inline_part.strip(" '\"")]
+              lines = after_colon.splitlines()[1:]
+              runners = []
+              for line in lines:
+                  if not line.strip():
+                      continue
+                  if line.strip().startswith("#"):
+                      continue
+                  m = re.match(r"^\s+-\s*([^\n#]+)", line)
+                  if m:
+                      item = m.group(1).strip().strip(" '\"")
+                      runners.append(item)
+                  else:
+                      break
+              return runners
+
+          try:
+              with open(path) as fh:
+                  text = fh.read()
+              violations = []
+              for m in re.finditer(r"runs-on\s*:", text):
+                  runners = parse_runners(text, m.end())
+                  if not runners:
+                      continue
+                  
+                  preceding_lines = [line for line in text[:m.start()].splitlines() if line.strip()]
+                  recent_lines = preceding_lines[-2:] if len(preceding_lines) >= 2 else preceding_lines
+                  has_override = any(re.search(r"^\s*#\s*runner-override", line) for line in recent_lines)
+                  
+                  for runner in runners:
+                      if vis == "private" and (runner.startswith("ubuntu") or runner.startswith("macos") or runner.startswith("windows")):
+                          if not has_override:
+                              violations.append(f"  - line ~{text[:m.start()].count(chr(10))+1}: '{runner}' is GitHub-hosted in a PRIVATE repo without # runner-override comment")
+                      if vis == "public" and "self-hosted" in runner:
+                          if not has_override:
+                              violations.append(f"  - line ~{text[:m.start()].count(chr(10))+1}: '{runner}' is self-hosted in a PUBLIC repo without # runner-override comment")
+              if violations:
+                  print(f"VIOLATIONS in {path} ({vis} repo):")
+                  for v in violations:
+                      print(v)
+                  sys.exit(2)
+          except Exception as e:
+              print(f"ERROR reading or parsing {path}: {e}")
+              sys.exit(1)
           PYEOF
             if [ $? -ne 0 ]; then
               FAIL=1

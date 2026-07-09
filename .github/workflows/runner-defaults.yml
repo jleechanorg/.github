@@ -64,7 +64,11 @@ jobs:
           VIS: ${{ steps.visibility.outputs.visibility }}
           OVERRIDE: ${{ inputs.runs-on-override }}
         run: |
-          RUNNER="${OVERRIDE:-self-hosted}"
+          DEFAULT_RUNNER="self-hosted"
+          if [ "$VIS" = "public" ]; then
+            DEFAULT_RUNNER="ubuntu-latest"
+          fi
+          RUNNER="${OVERRIDE:-$DEFAULT_RUNNER}"
           EXPECTED_DEFAULT=""
           if [ "$VIS" = "public" ]; then
             EXPECTED_DEFAULT="github-hosted"

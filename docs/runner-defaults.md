@@ -68,23 +68,7 @@ jobs:
 
 ### Hard enforcement (later, opt-in per repo)
 
-Add this to any repo to **fail CI** when `runs-on:` violates policy:
-
-```yaml
-# .github/workflows/runner-policy-gate.yml
-name: Runner Policy Gate
-on:
-  pull_request:
-    paths: ['.github/workflows/**']
-jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: jleechanorg/.github/.github/workflows/runner-policy-gate.yml@main
-        with:
-          repo-visibility: ${{ github.event.repository.private && 'private' || 'public' }}
-```
+To enforce this policy on pull requests in a consuming repo, copy `.github/workflows/runner-policy-gate.yml` from this repository directly to `.github/workflows/runner-policy-gate.yml` in the consuming repository.
 
 The gate is **opt-in** because flipping it on for an existing repo with 30 workflows creates a wall of red. Roll it out repo-by-repo as workflows are modernized.
 
@@ -147,7 +131,7 @@ A: Yes — add `# runner-override: need ephemeral Linux sandbox` above `runs-on:
 A: Sometimes, yes. Add the override comment with the reason. Track in the cost audit doc.
 
 **Q: Where do I find the available self-hosted labels?**
-A: Run `gh api repos/OWNER/REPO/actions/runners --jq '.[].labels[]'` — defaults are `self-hosted`, `self-hosted-linux`, `self-hosted-macos`, plus any custom labels you've configured on the MacBook runner.
+A: Run `gh api repos/OWNER/REPO/actions/runners --jq '.runners[].labels[].name'` — defaults are `self-hosted`, `self-hosted-linux`, `self-hosted-macos`, plus any custom labels you've configured on the MacBook runner.
 
 **Q: Does this apply to forks?**
 A: No — forks use the parent repo's policy by default. This policy is for org-owned repos.
