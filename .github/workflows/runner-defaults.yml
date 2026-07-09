@@ -27,6 +27,7 @@ on:
       job-name:
         description: "Logical job name for logs"
         required: false
+        type: string
         default: "default"
       runs-on-override:
         description: "Optional explicit runs-on override (e.g., macos-latest)"
