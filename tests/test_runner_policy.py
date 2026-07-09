@@ -36,6 +36,15 @@ def run_gate_logic(text: str, vis: str) -> list[str]:
     """Helper mimicking the Python audit logic in runner-policy-gate.yml."""
     violations = []
     for m in re.finditer(r"runs-on\s*:", text):
+        # Check if the line containing the match starts with '#' (i.e. is commented out)
+        line_start = text.rfind("\n", 0, m.start()) + 1
+        line_end = text.find("\n", m.end())
+        if line_end == -1:
+            line_end = len(text)
+        line = text[line_start:line_end]
+        if line.strip().startswith("#"):
+            continue
+
         runners = parse_runners(text, m.end())
         if not runners:
             continue
@@ -100,6 +109,13 @@ class TestRunnerPolicyGate(unittest.TestCase):
         violations = run_gate_logic(text, "private")
         # job2 has no override comment directly preceding it, so it should violate policy in a private repo
         self.assertEqual(len(violations), 1, "job2 should violate policy because its override comment is far away/for job1")
+
+    def test_commented_runs_on(self):
+        """Commented-out runs-on lines should be completely ignored."""
+        text = "jobs:\n  job1:\n    # runs-on: self-hosted\n    runs-on: ubuntu-latest"
+        # On public repo, runs-on: ubuntu-latest is fine. The commented-out runs-on: self-hosted should be ignored.
+        violations = run_gate_logic(text, "public")
+        self.assertEqual(violations, [])
 
 class TestScanRunnerDefaults(unittest.TestCase):
     def test_mixed_violations_not_masked(self):

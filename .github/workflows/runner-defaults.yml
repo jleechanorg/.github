@@ -92,6 +92,7 @@ jobs:
 
   run:
     needs: policy-check
+    # runner-override: Reusable workflow dynamically selects runner based on repository visibility
     runs-on: ${{ inputs.runs-on-override != '' && inputs.runs-on-override || (inputs.visibility == 'public' && 'ubuntu-latest' || 'self-hosted') }}
     steps:
       - name: Policy summary
