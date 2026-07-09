@@ -38,13 +38,6 @@ on:
         required: false
         type: boolean
         default: false
-      steps:
-        description: "Steps to run (passed through to the wrapper job)"
-        required: false
-        type: string
-        default: |
-          - name: Placeholder
-            run: echo "Override 'steps' input to add real work."
 
 jobs:
   policy-check:
@@ -94,7 +87,7 @@ jobs:
 
   run:
     needs: policy-check
-    runs-on: ${{ inputs.runs-on-override != '' && inputs.runs-on-override || 'self-hosted' }}
+    runs-on: ${{ inputs.runs-on-override != '' && inputs.runs-on-override || (inputs.visibility == 'public' && 'ubuntu-latest' || 'self-hosted') }}
     steps:
       - name: Policy summary
         run: |
@@ -109,8 +102,3 @@ jobs:
         run: |
           echo "::error title=Runner policy violated::Set fail-on-violation=false to soften, or fix the runs-on choice."
           exit 1
-
-      - name: Execute provided steps
-        run: |
-          echo "Executing inherited steps for job: ${{ inputs.job-name }}"
-          echo "(Inheriting steps via 'steps' input is a no-op in this reusable workflow shell.)"

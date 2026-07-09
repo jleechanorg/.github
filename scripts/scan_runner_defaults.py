@@ -47,18 +47,36 @@ def scan_repo(name: str, visibility: str, org: str = "jleechanorg") -> dict:
             return {"repo": name, "visibility": visibility, "error": clone.stderr.strip()[:200]}
         wf_dir = os.path.join(tmp, ".github", "workflows")
         if not os.path.isdir(wf_dir):
-            return {"repo": name, "visibility": visibility, "workflows": []}
+            return {"repo": name, "visibility": visibility, "workflows": [], "violations": []}
         workflows = []
+        violations = []
         for fn in sorted(os.listdir(wf_dir)):
             if not (fn.endswith(".yml") or fn.endswith(".yaml")):
                 continue
             with open(os.path.join(wf_dir, fn)) as f:
                 content = f.read()
             runs_on = []
-            for m in re.finditer(r"runs-on:\s*(\[.*?\]|[^\n#]+)", content):
-                runs_on.append(m.group(1).strip())
+            for m in re.finditer(r"runs-on:\s*([^\n#]+)", content):
+                runner = m.group(1).strip()
+                runs_on.append(runner)
+                start = max(0, m.start() - 400)
+                context = content[start:m.start()]
+                has_override = "runner-override" in context
+                
+                # Check for violation
+                r_clean = runner.strip("['\" ]")
+                is_violation = False
+                if visibility == "private" and (r_clean.startswith("ubuntu") or r_clean.startswith("macos") or r_clean.startswith("windows")):
+                    if not has_override:
+                        is_violation = True
+                elif visibility == "public" and "self-hosted" in r_clean:
+                    if not has_override:
+                        is_violation = True
+                
+                if is_violation:
+                    violations.append({"file": fn, "runner": runner})
             workflows.append({"file": fn, "runs_on": runs_on})
-        return {"repo": name, "visibility": visibility, "workflows": workflows}
+        return {"repo": name, "visibility": visibility, "workflows": workflows, "violations": violations}
     except subprocess.TimeoutExpired:
         return {"repo": name, "visibility": visibility, "error": "clone timeout"}
     finally:
@@ -83,9 +101,12 @@ def classify(scans: list[dict]) -> dict:
         if not wfs:
             buckets["no_workflows"].append(s["repo"])
             continue
-        uses_selfhosted = any("self-hosted" in str(ro) for wf in wfs for ro in wf["runs_on"])
+        has_violation = len(s.get("violations", [])) > 0
         vis = s["visibility"]
-        key = (vis, "self_hosted" if uses_selfhosted else "hosted")
+        if vis == "public":
+            key = ("public", "self_hosted" if has_violation else "hosted")
+        else:
+            key = ("private", "hosted" if has_violation else "self_hosted")
         buckets[key].append(s)
     return buckets
 
@@ -117,12 +138,12 @@ def main() -> int:
 
     print("\n--- COST LEAK: Private + GitHub-hosted ---")
     for s in buckets[("private", "hosted")]:
-        files = ", ".join(w["file"] for w in s["workflows"])
+        files = ", ".join(v["file"] for v in s.get("violations", []))
         print(f"  {s['repo']:45s}  {files}")
 
     print("\n--- WASTEFUL: Public + self-hosted ---")
     for s in buckets[("public", "self_hosted")]:
-        files = ", ".join(w["file"] for w in s["workflows"])
+        files = ", ".join(v["file"] for v in s.get("violations", []))
         print(f"  {s['repo']:45s}  {files}")
 
     if args.output:

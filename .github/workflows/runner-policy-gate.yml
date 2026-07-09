@@ -70,7 +70,7 @@ jobs:
               start = max(0, m.start() - 400)
               context = text[start:m.start()]
               has_override = "runner-override" in context
-              if vis == "private" and runner.startswith("ubuntu") or runner.startswith("macos") or runner.startswith("windows"):
+              if vis == "private" and (runner.startswith("ubuntu") or runner.startswith("macos") or runner.startswith("windows")):
                   if not has_override:
                       violations.append(f"  - line ~{text[:m.start()].count(chr(10))+1}: '{runner}' is GitHub-hosted in a PRIVATE repo without # runner-override comment")
               if vis == "public" and "self-hosted" in runner:
