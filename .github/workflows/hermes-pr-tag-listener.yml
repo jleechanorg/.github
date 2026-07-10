@@ -34,6 +34,20 @@ permissions:
 
 jobs:
   notify:
+    # Job-level pre-filter: skip runner provisioning entirely (no billed minute)
+    # unless the event can plausibly contain an @hermes mention. This mirrors
+    # the case-insensitive substring match the "Extract PR context" step below
+    # performs with `grep -Eqi '@hermes\b|<@USER_ID>'`, minus the \b word
+    # boundary (contains() has no regex support — see Known Limitations in
+    # the PR description). repository_dispatch always runs: it is the
+    # hermes-task-completed notification path, not a high-volume trigger, and
+    # its own action/repo match is still validated inside the bash step.
+    if: >-
+      github.event_name == 'repository_dispatch' ||
+      contains(github.event.comment.body, '@hermes') ||
+      contains(github.event.comment.body, format('<@{0}>', inputs.hermes_user_id)) ||
+      contains(github.event.pull_request.title, '@hermes') ||
+      contains(github.event.pull_request.title, format('<@{0}>', inputs.hermes_user_id))
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
