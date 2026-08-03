@@ -48,7 +48,7 @@ jobs:
       contains(github.event.comment.body, format('<@{0}>', inputs.hermes_user_id)) ||
       contains(github.event.pull_request.title, '@hermes') ||
       contains(github.event.pull_request.title, format('<@{0}>', inputs.hermes_user_id))
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, self-hosted-mikey]
     timeout-minutes: 3
     steps:
       - name: Derive Slack channel from repo (auto-routing default)
